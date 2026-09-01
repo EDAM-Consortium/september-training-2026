@@ -1,0 +1,16 @@
+feature,shap_value,correlated_with
+Measurement B (alt),1.1141468286514282,Measurement B
+Proportion metric,0.7277714610099792,NA
+Measurement C,0.6473431587219238,NA
+Measurement A,0.41620922088623047,NA
+Category A: C,-0.38391077518463135,NA
+Binary indicator 1,0.28078484535217285,NA
+Measurement B,-0.14341165125370026,Measurement B (alt)
+Standardised score,0.13178510963916779,NA
+Count metric,0.12581486999988556,NA
+Composite flag,0.08118691295385361,NA
+Category B: yes,-0.03386799246072769,NA
+Binary indicator 2,0.0011587351327762008,NA
+Category A: B,0,NA
+Category A: unknown,0,NA
+Category B: unknown,0,NA

@@ -1,0 +1,1502 @@
+---
+title: "EDAM Training - Parts 1-3 (Exercises)"
+output:
+  html_document:
+    toc: true
+    toc_depth: 3
+    toc_float:
+      collapsed: false
+      smooth_scroll: true
+    number_sections: false
+    theme: flatly
+    highlight: tango
+    code_folding: show
+    df_print: paged
+    fig_width: 8
+    fig_height: 5
+---
+
+> ⚠️ **This is simulated data, for teaching purposes only.**
+> All screening, population, and health post data is simulated.
+> Nothing here describes a real person, health facility, programme or nutrition outcome.
+> Only the rainfall data is real, sourced from [OCHA HDX](https://data.humdata.org/dataset/eth-rainfall-subnational).
+
+## How to use this notebook
+
+This is the exercise version of session 1. A few things to know before you start:
+
+- Wherever you see `___` inside a code chunk, that's something for you to fill in. A `# TODO:`
+  comment above it explains what's needed.
+- A `___` is not valid R on its own, so a chunk with a blank in it **will error** if you try to
+  run it as-is. That's expected. Work through this chunk by chunk (Ctrl/Cmd+Enter to run just the
+  current chunk) as you fill things in, rather than trying to Knit the whole document until you've
+  completed everything.
+- Wherever you see a **bolded question**, work out your own answer from the code and output above
+  it before moving on. The answers aren't in this file — check your reasoning against
+  `session_1_SOLUTIONS.Rmd` (or the published walkthrough on the course site) when you're done, or
+  if you get stuck.
+
+## Overview
+
+In this tutorial, imagine you work in an analysis team in a nutrition
+office in the Ethiopian Ministry of Health. You have just received a
+request from the Oromia Regional Health Bureau. Rainfall has been poor
+across the region for the past two seasons, and they want to know whether
+this is showing up in child nutrition. Based on their request, you
+determine that there are two main questions to answer:
+
+1. **Which zones in Oromia have the highest malnutrition?**
+2. **Is rainfall associated with child malnutrition in Oromia?**
+
+To answer these you have growth-monitoring records for children under 5 from
+health posts across 56 woredas (districts) in 14 zones, and rainfall estimates
+for the same zones and months. There is no budget or time for a survey.
+
+You will work towards an answer in three parts, each building on the
+output of the last:
+
+1. **Checking data quality.** You apply six data quality dimensions to the raw
+   register: accuracy, completeness, uniqueness, consistency, timeliness, and
+   validity. This gives you one documented cleaning pipeline.
+2. **Working with shapefiles.** This part focuses on shapefiles and, more
+   specifically, on how you get the cleaned register onto a map. It covers
+   coordinate reference systems, spatial joins, and the difference between
+   dissolving geometry and aggregating data.
+3. **Creating an outcome variable and exploring it.** You determine how many
+   children are underweight, and convert these to proportions so you can
+   compare across zones. You then use exploratory analysis to inspect these
+   proportions and answer both questions above.
+
+By the end you will have a clean, geographically located, outcome-scored
+dataset, and an answer to both questions along with its limitations.
+
+
+## Setup
+```{r, echo=FALSE}
+# Blanks (___) below are not valid R, so this notebook is not evaluated when
+# rendered for the site - only the code and questions are shown. Run it
+# yourself, chunk by chunk, in RStudio to see real output.
+knitr::opts_chunk$set(fig.align = "center", eval = FALSE)
+```
+
+```{r setup, message=FALSE, warning=FALSE}
+# Setup chunk
+# Libraries used in this tutorial
+library(anthro)
+library(dplyr)
+library(forcats)
+library(ggplot2)
+library(lubridate)
+library(patchwork)
+library(readr)
+library(sf)
+library(stringr)
+library(tidyr)
+
+# Caption for plots
+sim_caption <- "*Simulated data - for teaching purposes only"
+```
+
+
+## Part 1 - Check your ingredients
+
+Throughout this tutorial you will use four data tables and two shapefiles.
+You read in each file as it is required, and a brief explanation of the
+dataset and its codebook comes before each one.
+
+In this part, you will focus on nutrition screening as an illustrative example, but in
+practice you should check all your files.
+
+#### `nutrition_screening.csv` - one row per child per visit
+
+The raw growth-monitoring register. This captures every visit a child made to a
+health post, typed in by hand.
+
+| Field | Type | Description |
+|---|---|---|
+| `record_id` | text | Unique visit identifier |
+| `person_id` | text | Unique person identifier (identifies the person across visits) |
+| `woreda_name` | text | Woreda name as typed at the health post |
+| `health_post` | text | Unique identifier of the health post the child attended |
+| `visit_date` | date | Date of the screening visit |
+| `entry_date` | date | Date the record was entered into the system. Compare to `visit_date` for reporting lag |
+| `sex` | text | The sex of the child |
+| `dob` | date | Date of birth of the child |
+| `age_value` | number | Age as recorded, in the unit given by `age_unit` |
+| `age_unit` | text | The age unit (`"months"`/`"years"`) |
+| `weight_kg` | number | Child's weight in kilograms (kg) |
+| `height_cm` | number | Child's height/length in centimetres (cm) |
+| `muac_mm` | number | Mid-upper arm circumference (MUAC), in millimetres (mm) |
+```{r screening}
+screening <- read_csv("data/nutrition_screening.csv")
+```
+
+### What have you got?
+
+You start by looking at the first few rows, and then at a summary of every
+column.
+
+```{r shape}
+head(screening)
+summary(screening)
+```
+
+**Question:** What data quality issues can you already spot in the output above?
+
+Every check below works on `cohort_clean` - a single object you build up as you
+go, one dimension at a time. Where a dimension has a known, explainable fix,
+you apply it immediately and `cohort_clean` carries the fix into the next
+check. At the end you collect the same set of decisions into one documented
+pipeline, so you can see both ways of getting there.
+
+```{r cohort-init}
+cohort_clean <- screening
+```
+
+---
+
+### 1. Completeness
+
+To assess completeness, you check what percentage of values are missing per
+column and look for patterns.
+
+```{r completeness-a}
+cohort_clean |>
+  summarise(across(everything(), ~ round(mean(is.na(.)) * 100, 1))) |>
+  pivot_longer(everything(), names_to = "variable", values_to = "pct_missing") |>
+  arrange(desc(pct_missing))
+```
+
+You ask the regional bureau about `weight_kg`, `height_cm`, and `muac_mm`. They
+come back having already looked into two of the three: `weight_kg` and
+`height_cm` are **missing completely at random (MCAR)**, meaning the missingness
+is unrelated to the data. There is nothing to explain, and nothing to fix beyond
+dropping those rows.
+
+```{r completeness-drop}
+# TODO: weight_kg and height_cm were confirmed MCAR by the bureau - drop rows
+# where either one is missing.
+cohort_clean <- cohort_clean |>
+  filter(!is.na(___), ___)
+
+nrow(cohort_clean)
+```
+
+They are less sure about `muac_mm`, though. Their guess is **missing at random
+(MAR)**, meaning it is missing for a reason tied to something you can see in
+the data. They suggest looking at the health post, since that is the level at
+which equipment and staffing actually vary:
+
+```{r completeness-b}
+cohort_clean |>
+  group_by(health_post) |>
+  summarise(muac_missing = round(100 * mean(is.na(muac_mm))), .groups = "drop") |>
+  filter(muac_missing > 30) |>
+  arrange(desc(muac_missing))
+```
+
+**Question:** Does the missingness above look evenly spread across health posts, or does it
+cluster? What does that suggest about the mechanism, and does it match the bureau's MAR guess?
+
+`muac_mm` is not used anywhere else in this analysis, so you do not repair this
+missingness.
+
+**Since you take this to be MAR, how would you address the missingness?**
+
+**What would you need to see instead for `muac_mm` to be MNAR? Give a concrete
+example.**
+
+---
+
+### 2. Accuracy
+
+To assess accuracy, you check whether recorded values are physically possible,
+and wherever you know the actual mechanism behind the error, you repair it
+rather than remove it.
+
+You contact the regional office that provided this data for guidance. They
+confirm three known issues: some weights were mistakenly recorded in grams
+rather than kilograms, some heights in metres rather than centimetres, and some
+ages in months have been recorded as years. You count how many rows each issue
+affects.
+
+```{r accuracy-diagnose}
+cohort_clean |>
+  summarise(
+    weight_bad = sum(weight_kg > 30, na.rm = TRUE),
+    height_bad = sum(height_cm < 40,  na.rm = TRUE),
+    age_bad    = sum(age_unit == "years" & age_value > 5, na.rm = TRUE)
+  )
+```
+
+You then look at a few of the affected rows.
+
+```{r accuracy-values}
+cohort_clean |>
+  filter(weight_kg > 30 | height_cm < 40 | (age_unit == "years" & age_value > 5)) |>
+  select(age_value, age_unit, weight_kg, height_cm) |>
+  head(8)
+```
+
+Given that you know the cause, you can fix the problematic rows. If you did not
+know the cause, you would need to decide whether to drop the rows (assuming
+there is no pattern to which ones are problematic) or contact the bureau to
+figure out the cause.
+
+```{r accuracy-fix}
+# TODO: repeat the three conditions from accuracy-diagnose above to fix each
+# issue in place - weight_kg over 30 is really grams (divide by 1000);
+# height_cm under 40 is really metres (multiply by 100); age_unit == "years"
+# together with age_value > 5 is really months.
+cohort_clean <- cohort_clean |>
+  mutate(
+    age_unit   = if_else(___, "months", age_unit),
+    weight_kg  = if_else(___, weight_kg / 1000, weight_kg),
+    height_cm  = if_else(___, ___, ___)
+  )
+```
+
+---
+
+### 3. Validity
+
+To assess validity, you check whether values conform to what the field is
+supposed to contain.
+
+The regional bureau warns you about two columns where data capturers may have
+made mistakes. First, sex comes in under several different codes, when it should
+always be `F` or `M`. Second, woreda names come in with inconsistent
+capitalisation and stray whitespace, when there should be exactly 57 names: 56
+sampled woredas plus one "Unknown". You check both before fixing anything.
+
+```{r validity-diagnose}
+# Sex
+count(cohort_clean, sex)
+
+# Woredas
+c(raw_names     = n_distinct(cohort_clean$woreda_name),
+  cleaned_names = n_distinct(str_to_title(str_squish(cohort_clean$woreda_name))))
+```
+
+Alongside fixing sex and woreda, you also convert age to a single unit, since
+some rows record years and others months.
+
+```{r validity-fix}
+# TODO: sex comes in as f/female/2 (female) and m/male/1 (male). Map each
+# code onto "F" or "M".
+sex_lookup <- c(___ = ___, "female" = ___, ___ = "M",
+                ___ = ___, "male"   = ___, ___ = "F")
+
+cohort_clean <- cohort_clean |>
+  mutate(
+    sex_std    = unname(sex_lookup[str_to_lower(sex)]),
+    # TODO: woreda_std should be woreda_name in title case, with extra/stray
+    # whitespace squished out
+    woreda_std = ___,
+    # TODO: age_months should equal age_value when age_unit is "months", and
+    # age_value * 12 when age_unit is "years"
+    age_months = ___
+  )
+```
+
+Note that `sex_std`, `woreda_std`, and `age_months` are new columns rather than
+overwritten originals, so you can always get back to what was actually typed.
+
+---
+
+### 4. Consistency
+
+To assess consistency, you check whether values that describe the same
+real-world fact agree with each other. In this dataset, that means a child's
+sex and date of birth should stay the same across every visit they made.
+
+```{r consistency-diagnose}
+cohort_clean |>
+  group_by(person_id) |>
+  summarise(n_sex = n_distinct(sex_std, na.rm = TRUE),
+            n_dob = n_distinct(dob, na.rm = TRUE)) |>
+  filter(n_sex > 1 | n_dob > 1) |>
+  count(conflicting_sex = n_sex > 1, conflicting_dob = n_dob > 1)
+```
+
+Note that this runs on `sex_std`, not `sex`. Without the standardisation from
+the validity step above, `M`, `m` and `Male` would count as three different
+values and almost every child would look inconsistent.
+
+For each `person_id` with a conflict, you take the most common recorded value
+across their visits and apply it everywhere. Note that this assumes the majority
+entry is the correct one, which is a judgement call and should be documented.
+
+```{r consistency-fix}
+most_common <- function(x) {
+  x <- x[!is.na(x)]
+  if (length(x) == 0) return(NA)
+  names(sort(table(x), decreasing = TRUE))[1]
+}
+
+# TODO: for each person_id, find their majority sex_std and dob (as a Date)
+# across all of their visits, using most_common() above.
+fix_lookup <- cohort_clean |>
+  group_by(person_id) |>
+  summarise(sex_fix = ___,
+            dob_fix = ___,
+            .groups = "drop")
+
+# TODO: join fix_lookup back on, and overwrite sex_std/dob with the majority
+# values you just computed.
+cohort_clean <- cohort_clean |>
+  left_join(fix_lookup, by = "person_id") |>
+  mutate(sex_std = ___, dob = ___) |>
+  select(-sex_fix, -dob_fix)
+```
+
+A handful of children never had a usable sex recorded on *any* visit, so the
+majority vote has nothing to resolve and `sex_std` comes back `NA`. There is
+no fix for a value that was never captured, so you drop them.
+
+```{r consistency-drop-unresolved}
+# TODO: drop rows where sex_std is still NA
+cohort_clean <- cohort_clean |>
+  filter(___)
+
+nrow(cohort_clean)
+```
+
+---
+
+### 5. Uniqueness
+
+To assess uniqueness, you check whether the same event has been recorded more
+than once. You start with the number of exact duplicate rows.
+
+```{r uniqueness-diagnose}
+sum(duplicated(cohort_clean))
+
+```
+
+You then check whether there are any people with repeated entries on the same
+day.
+
+```{r repeated-entries}
+repeated_entries  <- cohort_clean |>
+  count(person_id, visit_date) |>
+  filter(n > 1)
+
+repeated_entries  |> nrow()
+```
+
+You look at what an example of this repetition looks like for a single person.
+
+```{r uniqueness-example}
+cohort_clean |>
+  filter(person_id == repeated_entries$person_id[1]) |>
+  select(record_id, person_id, visit_date, weight_kg) |>
+  arrange(visit_date)
+```
+
+Two fixes are needed. Identical rows are one submission sent twice, and
+`distinct()` handles them cleanly. The rest are the same child on the same day
+with a **new** `record_id` and a different weight. This is double data entry
+where the attempts disagree. You keep the newer one, identified here by the
+larger `record_id`, on the assumption that a value gets re-keyed because someone
+noticed a problem with the first. As before, document the assumption.
+
+```{r uniqueness-fix}
+# TODO: drop exact duplicate rows, then for same-day repeats of the same
+# person, keep only the row with the largest record_id.
+cohort_clean <- cohort_clean |>
+  ___() |>
+  group_by(person_id, visit_date) |>
+  ___(record_id, n = 1, with_ties = FALSE) |>
+  ungroup()
+
+nrow(cohort_clean)
+```
+
+---
+
+### 6. Timeliness
+
+To assess timeliness, you check whether data arrived, and was collected,
+quickly enough to be useful.
+
+The bureau tells you that they received data from most woredas in January, but
+that Jimma Town only provided data in March. You calculate the reporting lag
+(the gap in days between `visit_date` and `entry_date`) per woreda, and look at
+the five woredas with the longest median lag.
+
+```{r timeliness-diagnose}
+cohort_clean |>
+  mutate(lag_days = as.numeric(entry_date - visit_date)) |>
+  group_by(woreda_std) |>
+  summarise(median_lag = median(lag_days, na.rm = TRUE), .groups = "drop") |>
+  arrange(desc(median_lag)) |>
+  head(5)
+```
+
+**Question:** How does Jimma Town's reporting lag compare to the other woredas above? Does
+that match what the bureau told you, and what might explain it?
+
+Since there is a reporting lag between a visit happening and it being entered,
+you check the last month for which you have visit dates against the months
+before it, in case the most recent month has not caught up yet.
+
+```{r timeliness-month-diagnose}
+cohort_clean |>
+  mutate(month = floor_date(visit_date, "month")) |>
+  count(month) |>
+  arrange(month) |>
+  tail(4)
+```
+
+**Question:** How does the final month's record count compare to the months before it? Given
+that, and the reporting lag you just saw, should you keep it as-is?
+
+```{r timeliness-fix}
+# TODO: drop the final (most recent) month - keep only visits from before
+# the maximum month present in the data.
+cohort_clean <- cohort_clean |>
+  mutate(month = floor_date(visit_date, "month")) |>
+  filter(___)
+
+nrow(cohort_clean)
+```
+
+---
+
+### Document your pipeline
+
+In this part you assessed each data dimension and fixed issues as they arose.
+Another approach is to collect every fix into a single pipeline that cleans
+everything in one place, which is easier to audit, rerun, and hand over to
+someone else.
+
+**Optional challenge:** once every fix above is working, try rewriting them as a single piped
+pipeline starting from `read_csv("data/nutrition_screening.csv")`, so the whole cleaning process
+runs in one block.
+
+Whichever approach you take, write down what you did and assumed for each of the six dimensions
+above (completeness, accuracy, validity, consistency, uniqueness, timeliness).
+
+---
+
+## Part 2 - Working with shapefiles
+
+In this part you focus on working with shapefiles and joining your various
+datasets to them. You will use two shapefiles. The first is supplied by the
+regional bureau (`woredas.shp`) and contains the 56 woredas they sampled. The
+second is `eth.shp`, which you downloaded yourself from the public national
+database for country-wide context.
+
+#### `woredas.shp` - 56 sampled woredas, UTM 37N (EPSG:32637)
+
+| Field | Type | Description |
+|---|---|---|
+| `wor_pcode` | text | Woreda code |
+| `wor_name` | text | Woreda name |
+| `geometry` | MULTIPOLYGON | The woreda's boundary shape, in UTM 37N. |
+
+```{r woredas-shape}
+woredas   <- st_read("data/woredas.shp",     quiet = TRUE)
+```
+
+#### `eth.shp` - 1,148 national woredas, lon/lat (EPSG:4326)
+
+Source: [HDX](https://data.humdata.org/dataset/cod-ab-eth). Woreda codes and
+names match `woredas.shp`, and each woreda also carries the name and code of its
+zone and region. Note that Oromia's zones have changed since the rainfall data was produced, with some
+zones splitting. The shapefile has been edited to merge those zones back
+together, so `zone_pcode` matches all 14 zones in the rainfall file.
+
+| Field | Type | Description |
+|---|---|---|
+| `wor_pcode` | text | Woreda code |
+| `wor_name` | text | Woreda name |
+| `zone_pcode` | text | Zone code |
+| `zone_name` | text | Zone name |
+| `reg_pcode` | text | Region code |
+| `reg_name` | text | Region name |
+| `geometry` | MULTIPOLYGON | The woreda's boundary shape |
+
+```{r eth-shape}
+eth       <- st_read("data/eth.shp", quiet = TRUE)
+```
+
+### 1. What is in a shapefile?
+
+You start by printing the object and reading its header.
+
+```{r what-is-sf}
+woredas
+```
+
+The header is the useful part. **Geometry type** is MULTIPOLYGON, so some
+woredas are in more than one piece. The **bounding box** numbers are in the
+hundreds of thousands, so these are metres, not degrees. The **CRS** is UTM
+zone 37N.
+
+There are two things to watch for when you subset or summarise an sf object.
+
+```{r sticky-geometry}
+woredas |> select(wor_name)
+
+eth |> st_drop_geometry() |> count(zone_name) |> head()
+```
+
+`select(wor_name)` returns two columns, not one, because geometry is **sticky**
+and comes along unless you explicitly drop it. That is usually what you want on
+a map and never what you want in a summary table. `woredas.shp` only has 56
+rows, too few for that to cost you anything either way, so the second example
+uses `eth`. 1,148 rows is where `st_drop_geometry()` first actually saves you
+something, and where forgetting to drop it before a `group_by()` can turn
+seconds into minutes.
+
+---
+
+### 2. Where is your data?
+
+You add a flag to `eth` marking which woredas were sampled, so that you can see
+your woredas in context.
+
+```{r eth-enrich}
+# TODO: mark which of eth's woredas are among the 56 sampled ones in
+# `woredas` (match on wor_pcode)
+eth <- eth |>
+  mutate(sampled = ___)
+
+eth |>
+  st_drop_geometry() |>
+  count(sampled)
+```
+
+This is an ordinary `mutate()` against a vector, not a join in the sf sense. It
+matches on `wor_pcode`, a shared code, so it works even though `eth` is lon/lat
+and `woredas` is UTM. CRS only matters once two geometries interact directly, as
+Task 3 shows.
+
+`eth` now carries everything you need: the national picture, the admin
+hierarchy, and a flag for the 56 sampled woredas. You use `woredas` in Task 3
+because it is the file with the wrong projection, but all other tasks use
+`eth`, filtered to `sampled` when you mean just those 56.
+
+Carrying the full country through every step costs more than it needs to.
+Working from `woredas` and joining back to `eth` only at the end would be
+faster, but keeping one object throughout is easier to follow.
+
+
+You now plot some maps and look at the woredas your data comes from. You plot
+the following five maps:
+
+1. All woredas.
+
+```{r plot-country, fig.height=5}
+ggplot(eth) +
+  geom_sf(fill = "gray90", colour = "black", linewidth = 0.1) +
+  labs(title = "All woredas") +
+  theme_void() +
+  theme(plot.title = element_text(hjust = 0.5))
+```
+
+2. Colour the woredas that are in Oromia.
+
+```{r plot-region, fig.height=5}
+ggplot(eth) +
+  # TODO: TRUE for woredas in the Oromia region (reg_name)
+  geom_sf(aes(fill = ___), colour = "black", linewidth = 0.1) +
+  scale_fill_manual(values = c("TRUE" = "#4A90D9", "FALSE" = "gray90")) +
+  labs(title = "Woredas in Oromia", fill = "Oromia") +
+  theme_void() +
+  theme(plot.title = element_text(hjust = 0.5))
+```
+
+3. Colour the woredas that were sampled.
+
+```{r plot-sampled, fig.height=5}
+ggplot(eth) +
+  geom_sf(aes(fill = sampled), colour = "black", linewidth = 0.1) +
+  scale_fill_manual(values = c("TRUE" = "#4A90D9", "FALSE" = "gray90")) +
+  labs(title = "Sampled woredas", fill = "Sampled") +
+  theme_void() +
+  theme(plot.title = element_text(hjust = 0.5))
+```
+
+4. Zoom into the Oromia region and plot the woredas that were sampled.
+
+```{r plot-zoom, fig.height=5}
+# TODO: same Oromia condition as plot-region above
+bb2 <- st_bbox(filter(eth, ___))
+
+ggplot(eth) +
+  geom_sf(aes(fill = sampled), colour = "black", linewidth = 0.15) +
+  scale_fill_manual(values = c("TRUE" = "#4A90D9", "FALSE" = "gray90")) +
+  coord_sf(xlim = c(bb2$xmin, bb2$xmax), ylim = c(bb2$ymin, bb2$ymax)) +
+  labs(title = "Sampled woredas, zoomed to Oromia", fill = "Samples") +
+  theme_void() +
+  theme(plot.title = element_text(hjust = 0.5))
+```
+
+5. Plot only the sampled woredas and nothing else.
+
+```{r plot-sampled-only, fig.height=5}
+# TODO: keep only the sampled woredas
+ggplot(filter(eth, ___)) +
+  geom_sf(fill = "#4A90D9", colour = "gray90") +
+  labs(title = "Sampled woredas only") +
+  theme_void() +
+  theme(plot.title = element_text(hjust = 0.5))
+```
+
+**Question:** Compare plot 4 and plot 5. What's the difference between how `coord_sf()` and
+`filter()` handle the woredas outside your sample?
+
+**You need to choose a plot to show the sampled woredas in a report. Which would you choose?**
+
+---
+
+### 3. Coordinate reference systems
+
+#### `health_posts.csv` - one row per health post
+
+Locations of the health posts that captured data in the screening register
+(`nutrition_screening.csv`).
+
+| Field | Type | Description |
+|---|---|---|
+| `health_post` | text | Identifier. Joins to `nutrition_screening.csv`. |
+| `hp_name` | text | Human-readable name. |
+| `lon` | number | Longitude. A handful of rows have longitude and latitude swapped; see Part 2, Task 4. |
+| `lat` | number | Latitude. A few rows are missing entirely; one sits exactly on a woreda boundary, by design. |
+
+```{r hps}
+posts     <- read_csv("data/health_posts.csv")
+```
+
+You want to join the posts to one of your shapefiles so that you can see where
+the health posts that collected your data are. You receive a csv with lon/lat
+details, and you convert it into an `sf` object - geometry does not always have
+to come from a shapefile.
+
+```{r crs-check}
+# TODO: coords should reference the lon/lat columns, and crs is the EPSG
+# code for plain lon/lat (WGS84)
+posts_sf <- st_as_sf(posts |> drop_na(lon, lat),
+                     coords = c(___, ___), crs = ___)
+
+posts_sf
+```
+
+Note that the geometry of `posts_sf` is a POINT.
+
+Now you try to join `posts_sf` and `woredas`, which have different CRSs.
+
+```{r crs-fail, error=TRUE}
+# st_join(posts_sf, woredas, join = st_within)
+```
+
+`sf` refuses: `st_crs(x) == st_crs(y) is not TRUE`. Metres and degrees are not
+interchangeable, and a silent wrong answer would be worse than an error - every
+point would land in the Gulf of Guinea, near (0, 0).
+
+You transform the woredas into lon/lat so that both objects share a CRS.
+
+```{r crs-fix}
+# TODO: transform woredas into lon/lat (EPSG:4326) so it shares a CRS with
+# posts_sf
+woredas_ll <- ___(woredas, ___)
+st_crs(woredas_ll)$input
+```
+
+> **Note `st_transform()` vs `st_set_crs()`.** Transform recalculates every
+> coordinate into the new system. Set just writes a different label onto
+> unchanged numbers - appropriate only when the CRS was missing or wrong in the
+> first place. Using `st_set_crs()` where `st_transform()` was meant moves
+> the data thousands of kilometres and produces no error at all.
+
+---
+
+### 4. Point in polygon
+
+You now join the posts to `woredas_ll` to find which polygon each health post
+falls within. `st_join()` needs a predicate to decide what counts as a match.
+You use `st_within`, which only counts a point as inside a polygon if it is
+fully enclosed by it. The common alternative is `st_intersects`, which is more
+generous: it counts anything touching the polygon at all, including its edge.
+
+```{r spatial-join}
+# TODO: join posts_sf to woredas_ll, keeping one row per post. Use the
+# stricter "fully enclosed" predicate described above.
+joined <- st_join(posts_sf, woredas_ll, join = ___)
+
+c(total_posts = nrow(joined),
+  posts_matched  = sum(!is.na(joined$wor_pcode)),
+  posts_unmatched  = sum(is.na(joined$wor_pcode)))
+```
+
+The order of the arguments matters: `st_join()` keeps the first object's rows and
+geometry, so `posts_sf` has to come first for the result to have one row per
+post. Swapping them gives one row per woreda instead, and
+`st_within(woredas_ll, posts_sf)` would ask whether each polygon sits inside a
+point.
+
+Some posts were not matched. You plot the posts to see whether you can work out
+why.
+
+```{r plot-failures, fig.height=5}
+ggplot() +
+  geom_sf(data = eth, fill = "grey95", colour = "black", linewidth = 0.1) +
+  geom_sf(data = woredas, fill = "blue", colour = "black") +
+  geom_sf(data = st_jitter(joined, amount = 0.3), colour = "#D95F02", size = 1.5) +
+  coord_sf(xlim = c(0, 46), ylim = c(0, 45)) +
+  labs(title = "Health posts that landed nowhere", caption = sim_caption) +
+  theme_minimal() +
+  theme(plot.title = element_text(hjust = 0.5))
+```
+
+Next you look at the longitude and latitude of the problematic posts.
+
+```{r inspect-failures}
+joined |>
+  filter(is.na(wor_pcode)) |>
+  mutate(lon = st_coordinates(geometry)[, 1],
+         lat = st_coordinates(geometry)[, 2]) |>
+  st_drop_geometry() |>
+  select(health_post, lon, lat)
+
+# Ethiopia's bounding box, for comparison
+bb <- st_bbox(eth)
+bb
+```
+
+**Question:** Compare the coordinates of the unmatched posts to Ethiopia's bounding box above.
+What do you think has gone wrong with these rows?
+
+You flag the swapped rows, swap them back, and redo the join.
+
+```{r fix-swapped}
+posts_fixed <- posts |>
+  mutate(
+    # TODO: flag rows where lon/lat look swapped for Ethiopia (i.e. lon is
+    # suspiciously small and lat is suspiciously large), then swap them back
+    swapped = ___,
+    lon_fix = if_else(swapped, lat, lon),
+    lat_fix = if_else(swapped, lon, lat)
+  )
+
+posts_sf2 <- posts_fixed |>
+  drop_na(lon_fix, lat_fix) |>
+  st_as_sf(coords = c("lon_fix", "lat_fix"), crs = 4326)
+
+joined2 <- st_join(posts_sf2, eth, join = st_within)
+
+c(posts_unmatched = sum(is.na(joined2$wor_pcode)))
+```
+
+> **What if a post sits exactly on a woreda boundary?**
+
+---
+
+### 5. Joining tables to a shapefile
+
+#### `woreda_population.csv` - one row per woreda per year (2019-2024)
+
+The number of people, and the number of under-5s, living in each woreda each
+year.
+
+| Field | Type | Description |
+|---|---|---|
+| `woreda_pcode` | text | Woreda code |
+| `woreda_name` | text | Woreda name |
+| `year` | number | Calendar year of the projection |
+| `total_pop` | number | Total projected population |
+| `pop_under2` | number | Projected population under 2 years |
+| `pop_under5` | number | Projected population under 5 years |
+
+```{r wor_pop}
+pop <- read_csv("data/woreda_population.csv")
+```
+
+You can also join a table to a shapefile as normal, as long as there is a
+column to join on.
+
+```{r pop-join}
+before <- nrow(woredas)
+wor_pop <- woredas |> left_join(pop, by = c("wor_pcode" = "woreda_pcode"))
+
+c(before = before,
+  pop_years = n_distinct(pop$year),
+  after = nrow(wor_pop))
+```
+
+The number of rows has grown, since each woreda now maps to each population year
+(that is, the number of rows before multiplied by the number of population
+years). The geometry is repeated across these rows, so exercise caution when
+joining to shapefiles, as the output can grow quickly.
+
+Now you try making the same join using woreda names.
+
+```{r name-join}
+by_name <- woredas |>
+  left_join(pop, by = c("wor_name" = "woreda_name"))
+
+sum(is.na(by_name$total_pop))
+
+by_name |> filter(is.na(total_pop)) |> st_drop_geometry() |> select(wor_name)
+```
+
+**Question:** Look at the woredas that failed to match by name above, and compare their
+spelling to the equivalent entries in `woreda_population.csv`. What's going wrong, and what does
+this tell you about joining on names versus codes?
+
+---
+
+### 6. Aggregating up
+
+#### `zone_rainfall.csv` - one row per zone per month
+
+Monthly rainfall for each zone, already summarised from satellite data.
+
+| Field | Type | Description |
+|---|---|---|
+| `zone_pcode` | text | Zone unique identifier |
+| `date` | date | First of the month that the rainfall applies to |
+| `n_pixels` | number | Climate Hazards Group InfraRed Precipitation with Station data (CHIRPS) pixels averaged for this zone |
+| `rain_mm` | number | Rainfall total for the month, in mm. |
+| `rain_lta_mm` | number | Long-term average rainfall for that same calendar month, in mm |
+| `rain_anom_pct` | number | `rain_mm` as a **percentage of `rain_lta_mm`**. 100 is normal, below 100 is drier than usual, above 100 is wetter |
+
+```{r rainfall}
+rainfall  <- read_csv("data/zone_rainfall.csv")
+```
+
+Rainfall only exists at a zone level. You can either assume that each woreda
+experiences the same amount of rain as the entire zone, or aggregate the
+woredas to a zone level. Given that you need to answer policy questions related
+to zones, you aggregate. You also keep track of which zones were sampled,
+relative to the other zones.
+
+```{r zones-grouped, fig.height=4}
+# TODO: a zone counts as "sampled" if any of its woredas were sampled
+zones <- eth |>
+  group_by(zone_pcode, zone_name) |>
+  summarise(sampled = ___,
+  .groups = "drop")
+
+nrow(zones)
+
+ggplot(zones) +
+  geom_sf(aes(fill = sampled), colour = "black", linewidth = 0.3, show.legend = FALSE) +
+  labs(title = "Dissolved",
+       subtitle = "14 zone shapes") +
+  theme_void() +
+  theme(plot.title = element_text(hjust = 0.5),
+        plot.subtitle = element_text(hjust = 0.5))
+```
+
+Note that `group_by() |> summarise()` on an sf object goes a step
+further: it unions the geometries that share a group.
+
+Now you merge the zones to the rainfall data and plot a single month.
+
+```{r attach-rainfall, fig.height=5}
+zone_rain <- zones |>
+  left_join(rainfall, by = "zone_pcode")
+
+# Rainfall for 2022-06-01
+ggplot() +
+  geom_sf(data = eth, fill = "gray90", colour = "black", linewidth = 0.2) +
+  geom_sf(data = zone_rain |> filter(date == as.Date("2022-06-01")), aes(fill = rain_anom_pct), colour = "black", linewidth = 0.3) +
+  scale_fill_viridis_c() +
+  labs(title = "Rainfall, June 2022",
+       subtitle = "Zone shapes are the dissolved sample, not the true extent",
+       fill = "% of normal") +
+  theme_void() +
+  theme(plot.title = element_text(hjust = 0.5),
+        plot.subtitle = element_text(hjust = 0.5))
+```
+
+---
+
+### 7. Tying it all together
+
+You now need to tie the previous steps together and create a single object that
+carries the screening records along with population and rainfall data.
+
+You start with the screening records. You can either join them to `eth` at
+woreda level on `woreda_name`, or you can go via the health post coordinates.
+Joining on coordinates is more reliable than a name, and lets you reuse
+`posts_sf2` from Part 2, Task 4 - the version with the swapped lon/lat rows
+corrected and any post missing coordinates entirely dropped. To join using
+coordinates, you first join to the health post object, then use `st_within()`
+to place each record in a zone.
+
+```{r attach-geography}
+cohort <- cohort_clean
+
+cohort_geo <- cohort |>
+  left_join(posts_sf2 |> select(health_post), by = "health_post") |>
+  st_as_sf()
+
+cohort_geo_before <- nrow(cohort_geo)
+
+# TODO: join each record to the zone it falls within. Use the stricter
+# st_within predicate from earlier, and select() only the identifier
+# columns from `eth` you'll actually need - look ahead at the join in the
+# next chunk and the zone-level grouping/plotting in Part 3 to see which.
+combined_dataset <- cohort_geo |>
+  st_join(eth |> select(___), join = ___) |>
+  st_drop_geometry()
+
+c(before = nrow(cohort_geo), after = nrow(combined_dataset))
+```
+
+`cohort` is a plain data frame, so joining it to the sf object `posts_sf2` keeps
+the geometry column but not the `sf` class. `st_as_sf()` restores it. Because
+`st_within()` is strict about boundaries, you check the row counts to confirm
+that no points on a zone edge were dropped.
+
+Finally, you attach population and rainfall to each visit.
+
+```{r cohort-full}
+rainfall  <- rainfall |> rename(month=date)
+
+# TODO: join population by woreda code + year, and rainfall by zone code +
+# month - population is per woreda per year, rainfall is per zone per month.
+combined_dataset <- combined_dataset |>
+  mutate(year = year(visit_date)) |>
+  left_join(pop  |> select(-woreda_name), by = ___) |>
+  left_join(rainfall  |> select(-n_pixels), by = ___)
+
+nrow(combined_dataset)
+```
+
+---
+
+In this part you learnt how to work with shapefiles and join data to them.
+Using what you have learned, you created `combined_dataset`, which you use in
+the next part. It has one row per screening visit, with the rainfall for that
+visit's zone that month and the population for its woreda that year attached to
+each row.
+
+**What this part has not covered:** small polygons a coarse grid misses
+entirely, bounding boxes over-claiming on curved units, polygon-to-polygon
+overlap and area weighting, and rasters. A tutorial covering these is in your
+materials. When a spatial operation errors, try `st_is_valid()`,
+`st_make_valid()`, `sf_use_s2(FALSE)` and `st_cast()` before anything else.
+
+---
+
+## Part 3 - Building an outcome, and looking at it
+
+### 1. From a weight to an outcome
+
+To answer your policy question you need to know who is underweight. Raw weight
+alone cannot tell you that. A 12 kg two-year-old and a 12 kg four-year-old are
+not equally nourished, so weight only means something once it is compared
+against what is expected for a child of that age and sex.
+
+WHO's Child Growth Standards supply that reference, and the `anthro` package
+turns each child's raw weight into a **weight-for-age z-score (WAZ)**. A WAZ
+tells you how many standard deviations a child sits from the median child of
+the same age and sex. According to WHO cutoffs, below -2 is underweight and
+below -3 is severe.
+
+`anthro_zscores()` is particular about its inputs. Sex must be coded `1`/`2`
+rather than `"M"`/`"F"`, age must be in whole months, and a `measure` argument
+tells it how height was taken. Children under 24 months are measured lying down
+(`l`), older children standing up (`h`); the two give different numbers for the
+same child, which the package adjusts for.
+
+```{r zscores}
+# TODO: anthro_zscores() needs sex coded 1/2 (not "M"/"F"), and a measure of
+# "l" for children under 24 months (lying down) or "h" for 24 months and
+# older (standing up).
+z <- anthro_zscores(
+  sex = if_else(cohort$sex_std == "M", ___, ___),
+  age = cohort$age_months,
+  is_age_in_month = TRUE,
+  weight = cohort$weight_kg,
+  lenhei = cohort$height_cm,
+  measure = if_else(cohort$age_months < 24, ___, ___)
+)
+
+# Add the z-score to both objects
+combined_dataset <- combined_dataset |>
+  mutate(waz = z$zwei)
+
+cohort <- cohort |>
+  mutate(waz = z$zwei)
+
+combined_dataset |>
+  summarise(
+    children        = n(),
+    no_zscore       = sum(is.na(waz))
+  )
+```
+
+---
+
+### 2. Look at the outcome before you use it
+
+Now look at a histogram of the outcome variable you have created, with dashed
+lines at -2 and -3, the WHO thresholds for underweight and severely underweight
+respectively.
+
+```{r hist, fig.height=4}
+combined_dataset |>
+  filter(!is.na(waz)) |>
+  ggplot(aes(waz)) +
+  geom_histogram(bins = 60, fill = "#4A90D9") +
+  geom_vline(xintercept = c(-3, -2), linetype = "dashed", colour = "#D95F02") +
+  labs(title = "Weight-for-age z-scores",
+       subtitle = "Dashed lines: underweight (-2) and severe (-3)",
+       x = "WAZ", y = "Children", caption = sim_caption) +
+  theme_bw() +
+  theme(plot.title = element_text(hjust = 0.5),
+        plot.subtitle = element_text(hjust = 0.5),
+        panel.border = element_blank(),
+        axis.line = element_line(colour = "black"))
+```
+
+**Question:** Looking at the histogram above, what does the shape of the distribution tell you,
+especially relative to the -2/-3 cutoffs? Next you create a boxplot that splits the same
+distribution by zone.
+
+```{r box, fig.height=4}
+combined_dataset |>
+  filter(!is.na(waz), !is.na(zone_name)) |>
+  ggplot(aes(x = fct_reorder(zone_name, waz), y = waz)) +
+  geom_boxplot(fill = "#4A90D9", alpha = 0.6, outlier.alpha = 0.2) +
+  geom_hline(yintercept = c(-3, -2), linetype = "dashed", colour = "#D95F02") +
+  coord_flip() +
+  labs(title = "Weight-for-age by zone", x = NULL, y = "WAZ",
+       caption = sim_caption) +
+  theme_bw() +
+  theme(plot.title = element_text(hjust = 0.5),
+        plot.subtitle = element_text(hjust = 0.5),
+        panel.border = element_blank(),
+        axis.line = element_line(colour = "black"))
+```
+
+**Question:** Compare the boxplots across zones. Is the left-skew you saw in the histogram
+common to every zone, or driven by a few? Do any zones stand out from the rest?
+
+---
+
+### 3. Mapping the children underweight
+
+While the z-score is useful, you are more interested in the number of children
+who are underweight and who are severely underweight.
+
+```{r underweight-flags}
+# TODO: using the WHO cutoffs from Part 3.1 (-2 underweight, -3 severe),
+# flag each child as underweight, severe, or total_underweight (either one)
+combined_dataset <- combined_dataset |>
+  mutate(
+    underweight       = ___,
+    severe            = ___,
+    total_underweight = underweight | severe
+  )
+
+cohort <- cohort |>
+  mutate(
+    underweight       = ___,
+    severe            = ___,
+    total_underweight = underweight | severe
+  )
+
+combined_dataset |>
+  summarise(
+    pct_underweight       = round(100 * mean(underweight), 1),
+    pct_severe            = round(100 * mean(severe), 1),
+    pct_total_underweight = round(100 * mean(total_underweight), 1)
+  )
+```
+
+Now you plot your data. You consider three views: the number of children
+screened, the number underweight, and the proportion of screened children who
+are underweight. First you build the zone-level summary those maps need.
+
+```{r by-zone}
+# pop_under5 is a per-woreda figure, repeated on every child's visit row in
+# combined_dataset - summing it directly would add that same number in once
+# per visit instead of once per woreda, so take distinct woreda values first.
+zone_pop <- combined_dataset |>
+  distinct(wor_pcode, zone_pcode, pop_under5) |>
+  group_by(zone_pcode) |>
+  summarise(pop_under5 = sum(pop_under5, na.rm = TRUE), .groups = "drop")
+
+zone_summary <- combined_dataset |>
+  group_by(zone_pcode) |>
+  summarise(
+    n_screened                = n(),
+    n_underweight             = sum(underweight),
+    n_severe                  = sum(severe),
+    n_total_underweight       = sum(total_underweight),
+    # TODO: proportion of screened children who are underweight
+    prop_screened_underweight = ___,
+    .groups                   = "drop"
+  ) |>
+  left_join(zone_pop, by = "zone_pcode")
+
+zone_data <- zones |> left_join(zone_summary, by = "zone_pcode")
+```
+
+You define a helper function to speed up the plotting, then use it to create
+three maps.
+
+```{r three-maps, fig.width=12, fig.height=5, warning=FALSE}
+p <- function(var, title, fill_title, labels = scales::label_number()) {
+  bb  <- st_bbox(filter(zone_data, sampled == TRUE))
+
+  ggplot() +
+    geom_sf(data = zone_data, aes(fill = .data[[var]]), colour = "black", linewidth = 0.2) +
+    geom_sf_label(data = filter(zone_data, sampled), aes(label = zone_name), size = 2,
+                  linewidth = 0, fill = scales::alpha("gray90", 0.7)) +
+    # to zoom in, uncomment this line
+    # coord_sf(xlim = bb[c("xmin", "xmax")], ylim = bb[c("ymin", "ymax")]) +
+    scale_fill_viridis_c(direction = -1, na.value = "grey95", labels = labels) +
+    labs(title = title, fill = fill_title, caption = sim_caption) +
+    theme_void() +
+    theme(plot.title = element_text(hjust = 0.5))
+}
+
+p("n_total_underweight",       "a) Underweight children",   "Children") +
+p("n_screened",                "b) Children screened",      "Children") +
+p("prop_screened_underweight", "c) Proportion underweight", "Proportion",
+  labels = scales::label_percent()) +
+  plot_layout(ncol = 3)
+```
+
+**Question:** Compare Ilu Aba Bora and Arsi across the three maps above. What do you notice?
+
+Colour on a map is hard to rank precisely. The same children as bars, sorted and
+split by severity, make the point more clearly:
+
+```{r severity-bars, fig.height=4.5}
+zone_severity <- zone_data |>
+  st_drop_geometry() |>
+  filter(sampled) |>
+  select(zone_name, n_screened, Underweight = n_underweight, Severe = n_severe) |>
+  pivot_longer(c(Underweight, Severe), names_to = "severity", values_to = "n") |>
+  mutate(
+    severity      = factor(severity, levels = c("Underweight", "Severe")),
+    prop_screened = n / n_screened
+  )
+
+q <- function(value_var, title, y_lab, labels = scales::label_number()) {
+  ggplot(zone_severity, aes(x = fct_reorder(zone_name, .data[[value_var]], sum),
+                            y = .data[[value_var]], fill = severity)) +
+    geom_col() +
+    coord_flip() +
+    scale_y_continuous(labels = labels) +
+    scale_fill_manual(values = c(Underweight = "#4A90D9", Severe = "#D95F02")) +
+    labs(title = title, x = NULL, y = y_lab, fill = NULL, caption = sim_caption) +
+    theme_bw() +
+    theme(plot.title = element_text(hjust = 0.5),
+          panel.border = element_blank(),
+          axis.line = element_line(colour = "black"))
+}
+
+q("n",             "Underweight children",
+  "Children") +
+q("prop_screened", "Proportion of children screened",
+  "Proportion", labels = scales::label_percent()) +
+  plot_layout(ncol = 2)
+```
+
+---
+
+### 4. Coverage
+
+Map (c) ranks zones by the proportion underweight among children screened.
+But that proportion only describes the children who came, not the children who
+live there. To take this into account you need to investigate coverage. You add
+coverage to `zone_data` and map it alongside the under-5 population.
+
+```{r coverage, fig.width=9, fig.height=5}
+# TODO: coverage = children screened as a proportion of the under-5 population
+zone_data <- zone_data |>
+  mutate(coverage = ___)
+
+p("pop_under5", "d) Under-5 population",
+  "Children under-5") +
+p("coverage", "e) Coverage (screened ÷ under-5 population)",
+  "Screened", labels = scales::label_percent(accuracy = 0.1)) +
+  plot_layout(ncol = 2)
+```
+
+**Question:** Looking at maps (d) and (e), how does coverage vary across zones? Which zone has
+the highest coverage, and which the lowest?
+
+Ranking the zones by the proportion underweight, alongside their coverage,
+gives:
+
+```{r final-ranking}
+zone_data |>
+  st_drop_geometry() |>
+  filter(sampled) |>
+  arrange(desc(prop_screened_underweight)) |>
+  transmute(
+    zone_name,
+    n_screened,
+    n_total_underweight,
+    pct_underweight = round(100 * n_total_underweight / n_screened, 1),
+    pct_coverage    = round(100 * coverage, 2)
+  )
+```
+
+**So, which zones in Oromia have the highest malnutrition, based on the ranking above? What
+limitations should you flag before reporting this?**
+
+---
+
+### 5. Over time
+
+Now you need to address question 2. As a reminder, `rain_anom_pct` is that
+month's rainfall as a percentage of the long-term average for that same month
+in that same zone: 100 is normal, below 100 is drier than usual, above 100 is
+wetter. This is the same idea as the proportions above. Absolute rainfall is not
+comparable across seasons or zones, so it needs a denominator too, and here the
+denominator is what that zone normally gets at that time of year.
+
+Start by looking at the proportion underweight and `rain_anom_pct` overall.
+
+```{r time-plot, fig.height=5}
+monthly <- combined_dataset |>
+  group_by(month) |>
+  summarise(n_screened          = n(),
+            n_total_underweight = sum(total_underweight),
+            prop                = n_total_underweight / n_screened,
+            rain_pct            = mean(rain_anom_pct, na.rm = TRUE),
+            .groups = "drop")
+
+p_rain <- ggplot(monthly, aes(month, rain_pct)) +
+  geom_line(colour = "#4A90D9", linewidth = 0.9) +
+  labs(title = "Nutrition follows the rains, with a delay",
+       x = NULL, y = "Rainfall, % of normal") +
+  theme_bw() +
+  theme(plot.title = element_text(hjust = 0.5),
+        panel.border = element_blank(),
+        axis.line = element_line(colour = "black"))
+
+p_prop <- ggplot(monthly, aes(month, prop)) +
+  geom_line(colour = "#D95F02", linewidth = 0.9) +
+  scale_y_continuous(labels = scales::percent) +
+  labs(x = NULL, y = "Proportion underweight", caption = sim_caption) +
+  theme_bw() +
+  theme(panel.border = element_blank(),
+        axis.line = element_line(colour = "black"))
+
+p_rain / p_prop
+```
+
+**Question:** Look at the two panels above. Does the proportion underweight move at the same
+time as rainfall, or with a delay?
+
+One explanation for a lag like this is the chain from poor rains to crop and livestock losses,
+then to household food insecurity, and finally to malnourishment. It is important to be clear,
+though, that nothing here establishes that chain. Two series moving in sequence is consistent
+with it, but it may also support many other explanations.
+
+**How long is that delay?** Rather than guess, you check every lag from 0 to 9
+months and see which one actually correlates with the proportion underweight.
+
+```{r lag-scan, fig.height=4}
+lag_scan <- data.frame(lag = 0:9) |>
+  mutate(correlation = sapply(lag, function(k) {
+    cor(monthly$prop, lag(monthly$rain_pct, k), use = "complete.obs")
+  }))
+
+ggplot(lag_scan, aes(lag, correlation)) +
+  geom_col(fill = "#4A90D9") +
+  geom_hline(yintercept = 0, colour = "black") +
+  scale_x_continuous(breaks = 0:9) +
+  labs(title = "How many months back does rainfall predict underweight?",
+       x = "Lag (months)", y = "Correlation with proportion underweight",
+       caption = sim_caption) +
+  theme_bw() +
+  theme(plot.title = element_text(hjust = 0.5),
+        panel.border = element_blank(),
+        axis.line = element_line(colour = "black"))
+```
+
+**Question:** Looking at the bar chart above, over which range of lags does rainfall most
+strongly correlate with the proportion underweight? From here you use the average across that
+window, `rain_lag`, rather than picking a single month out of it.
+
+Based on the window you identified above, you plot the averaged, lagged rainfall and overlay the
+two series so that they move together. The relationship should be clearer now.
+
+```{r lag-overlay, fig.height=4.5}
+# TODO: use the lag window you identified from the chart above - average
+# together lag(rain_pct, k) for each month k in that window
+monthly_shifted <- monthly |>
+  mutate(rain_lag_pct = (lag(rain_pct, ___) + lag(rain_pct, ___) +
+                          lag(rain_pct, ___) + lag(rain_pct, ___)) / ___)
+
+scale_factor <- max(monthly_shifted$rain_lag_pct, na.rm = TRUE) /
+  max(monthly_shifted$prop, na.rm = TRUE)
+
+ggplot(monthly_shifted, aes(month)) +
+  geom_line(aes(y = rain_lag_pct), colour = "#4A90D9", linewidth = 0.9, na.rm = TRUE) +
+  geom_line(aes(y = prop * scale_factor), colour = "#D95F02", linewidth = 0.9) +
+  scale_y_continuous(
+    name     = "Rainfall, lagged (% of normal)",
+    sec.axis = sec_axis(~ . / scale_factor, name = "Proportion underweight",
+                         labels = scales::percent)
+  ) +
+  labs(title = "Shifted by the lag, the two lines move together",
+       subtitle = "Blue: lagged rainfall (left axis). Orange: proportion underweight (right axis).",
+       x = NULL, caption = sim_caption) +
+  theme_bw() +
+  theme(plot.title      = element_text(hjust = 0.5),
+        plot.subtitle   = element_text(hjust = 0.5),
+        axis.title.y.left  = element_text(colour = "#4A90D9"),
+        axis.title.y.right = element_text(colour = "#D95F02"),
+        panel.border = element_blank(),
+        axis.line.x.bottom = element_line(colour = "black"),
+        axis.line.y.left   = element_line(colour = "black"),
+        axis.line.y.right  = element_line(colour = "black"))
+```
+
+---
+
+### 6. The relationship
+
+Now that you know there is a relationship overall, look at it at a zone level.
+You start by creating a `zone_month` object, which is similar to `monthly` but
+also groups by `zone_pcode` and `zone_name`.
+
+```{r zone-month}
+zone_month <- combined_dataset |>
+  group_by(zone_pcode, zone_name, month) |>
+  summarise(n_screened          = n(),
+            n_total_underweight = sum(total_underweight),
+            prop                = n_total_underweight / n_screened,
+            rain_anom_pct = mean(rain_anom_pct),
+            .groups = "drop")
+
+zone_month <- zone_month |>
+  arrange(zone_pcode, month) |>
+  group_by(zone_pcode) |>
+  mutate(rain_lag = (lag(rain_anom_pct, 3) + lag(rain_anom_pct, 4) +
+                     lag(rain_anom_pct, 5) + lag(rain_anom_pct, 6)) / 4) |>
+  ungroup() |>
+  filter(!is.na(rain_lag)) # lagging costs you the first six months of data
+```
+
+You start by looking at a scatter of lagged rainfall against the proportion
+underweight.
+
+```{r scatter, fig.height=4}
+zone_month |>
+  filter(n_screened >= 25) |>
+  ggplot(aes(rain_lag, prop)) +
+  geom_point(aes(), alpha = 0.25, colour = "#4A90D9") +
+  geom_vline(xintercept = 100, linetype = "dotted", colour = "black") +
+  geom_smooth(aes(weight = n_screened), method = "glm",
+              method.args = list(family = quasibinomial()),
+              se = FALSE, colour = "#D95F02") +
+  labs(title = "Underweight against the previous season's rainfall",
+       subtitle = "Each point is a zone-month; below 100% is drier than normal",
+       x = "Rainfall 3-6 months earlier (% of normal)",
+       y = "Proportion underweight", caption = sim_caption) +
+  theme_bw() +
+  theme(plot.title = element_text(hjust = 0.5),
+        plot.subtitle = element_text(hjust = 0.5),
+        panel.border = element_blank(),
+        axis.line = element_line(colour = "black"))
+```
+
+**Question:** Looking at the scatter plot and fitted curve above, what's the relationship
+between lagged rainfall and the proportion of children underweight? Does it look the same across
+the whole range of rainfall values, or does it change?
+
+**Is that relationship stable, or is it one drought year doing all the work?**
+To answer this, look at the correlation within each year.
+
+```{r yearly-corr, fig.height=4}
+yearly_corr <- zone_month |>
+  mutate(year = year(month)) |>
+  group_by(year) |>
+  summarise(
+    # TODO: correlation between prop and rain_lag for this year
+    correlation = ___,
+    n_obs       = sum(!is.na(prop) & !is.na(rain_lag)),
+    .groups = "drop"
+  )
+
+ggplot(yearly_corr, aes(factor(year), correlation)) +
+  geom_col(fill = "#4A90D9") +
+  geom_hline(yintercept = 0, colour = "black") +
+  geom_text(aes(label = paste0("n=", n_obs),
+                y = pmin(correlation, 0) - 0.03),
+            size = 3, colour = "grey30") +
+  labs(title = "The rain-underweight correlation, year by year",
+       subtitle = "n = zone-month observations feeding each year's correlation",
+       x = NULL, y = "Correlation (prop underweight vs. 3-6 month rain lag)",
+       caption = sim_caption) +
+  theme_bw() +
+  theme(plot.title = element_text(hjust = 0.5),
+        panel.border = element_blank(),
+        axis.line = element_line(colour = "black"))
+```
+
+**Is it the same in every zone, or concentrated in a few?**
+
+```{r zone-corr-map, fig.height=5, warning=FALSE}
+zone_corr <- zone_month |>
+  group_by(zone_pcode) |>
+  summarise(n_months    = n(),
+            # TODO: correlation between prop and rain_lag for this zone
+            correlation = ___,
+            .groups = "drop")
+
+zone_corr_map <- zones |>
+  left_join(zone_corr, by = "zone_pcode") |>
+  filter(!is.na(correlation))
+
+# Zoom to the zones that actually carry a correlation. `bb` further up is
+# Ethiopia's national bounding box and would zoom out to the whole country.
+bb_corr <- st_bbox(zone_corr_map)
+
+ggplot() +
+  geom_sf(data = zones, fill = "grey95", colour = "black", linewidth = 0.1) +
+  geom_sf(data = zone_corr_map, aes(fill = correlation), colour = "black", linewidth = 0.2) +
+  geom_sf_label(data = zone_corr_map, aes(label = zone_name), size = 2,
+                linewidth = 0, fill = scales::alpha("gray90", 0.7)) +
+  scale_fill_viridis_c(limits = c(-0.6, -1)) +
+  coord_sf(xlim = bb_corr[c("xmin", "xmax")], ylim = bb_corr[c("ymin", "ymax")]) +
+  labs(title = "How rain-sensitive is each zone?",
+       subtitle = "Pearson correlation between lagged rainfall and proportion underweight, pooled across all six years",
+       fill = "Pearson correlation", caption = sim_caption) +
+  theme_void() +
+  theme(plot.title = element_text(hjust = 0.5),
+        plot.subtitle = element_text(hjust = 0.5))
+```
+
+Note that a correlation describes how two series move together. It says nothing
+about how many children are underweight in a zone, so these values cannot be
+used to rank zones as better or worse off. The two are separate, and reading them together is
+what makes the zone comparisons informative.
+
+**So, is rainfall associated with child malnutrition in Oromia?**
+
+---
+
+## Before you leave
+
+With that, you have enough to send the Regional Health Bureau a preliminary
+reply. They asked two questions:
+
+1. **Which zones in Oromia have the highest malnutrition?**
+2. **Is rainfall associated with child malnutrition in Oromia?**
+
+Write your own answers to both, and note what limitations you'd flag before this goes to the
+Bureau.
+
+There is also a broader limitation worth thinking about: you've looked at rainfall on its own,
+without considering anything else that might also matter. What would you need to do to separate
+rainfall's own effect from other factors that might be driving the same outcome? (This is what
+the next session covers - once you've worked through it, you can come back to this dataset and
+see what changes.)

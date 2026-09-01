@@ -1,0 +1,13 @@
+feature,mean_abs_shap,correlated_with
+Proportion metric,0.5696587942459882,NA
+Measurement B (alt),0.5292832340055611,Measurement B
+Standardised score,0.34220236756824307,NA
+Measurement C,0.3346656543851714,NA
+Measurement B,0.3207018798335048,Measurement B (alt)
+Measurement A,0.2307456875051139,NA
+Binary indicator 1,0.2175620363256894,NA
+Count metric,0.21460669015010353,NA
+Category A: C,0.20454215324949473,NA
+Composite flag,0.1091305157286115,NA
+Category B: yes,0.054609313014661896,NA
+Binary indicator 2,0.005671970208204584,NA
