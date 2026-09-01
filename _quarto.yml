@@ -1,0 +1,22 @@
+project:
+  type: website
+  render:
+    - index.qmd
+  output-dir: _site
+
+website:
+  title: "EDAM September Training"
+  favicon: images/edam-logo.png
+  navbar:
+    background: "#0A3B81"
+    type: dark
+    logo: images/edam-logo.png
+    left:
+      - href: index.qmd
+        text: Home
+
+format:
+  html:
+    theme: [flatly, custom.scss]
+    toc: true
+    code-fold: show

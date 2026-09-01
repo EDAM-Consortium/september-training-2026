@@ -1,0 +1,25 @@
+---
+title: "EDAM Training"
+---
+
+Welcome to the EDAM September 2026 training materials. This site is the rendered,
+read-only version of the course. You can view the course content here, but we
+recommend running the material yourself (see below).
+
+## Materials
+
+- [**Session 1: Ethiopia Nutrition & Rainfall**](session_1/session_1_SOLUTIONS.Rmd) - a tutorial on
+  how to clean your data, work with shapefiles, and use descriptive plots to answer policy questions.
+- [**Session 2: XGBoost & SHAP**](session_2/xgboost_shap_workflow_tutorial.Rmd) - a tutorial on
+  explainable AI, covering how to train a model (XGBoost) and interpret SHAP values.
+
+## Running the material yourself
+
+To run the code, clone or download this repository, then open the `.Rmd` file for the session you
+want, leaving it inside its own folder. Keep each session's `data/` folder alongside its `.Rmd` —
+the code reads data using paths relative to that folder.
+
+Note that session 1 comes in two versions: an exercise version (`session_1/session_1_EXERCISES.Rmd`), which
+has blanks for you to fill in and questions to answer based on your results, and a solutions version
+(`session_1/session_1_SOLUTIONS.Rmd`), which is the one rendered on this website. We suggest you try
+the exercises first and consult the solutions when you get stuck.
