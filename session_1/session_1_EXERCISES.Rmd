@@ -167,11 +167,13 @@ cohort_clean |>
   arrange(desc(pct_missing))
 ```
 
-You raise `weight_kg`, `height_cm` and `muac_mm` with the regional bureau. They
-come back having already looked into two of the three: `weight_kg` and
+You raise `weight_kg`, `height_cm`, `sex` and `muac_mm` with the regional bureau.
+They come back having already looked into three of the four: `weight_kg` and
 `height_cm` are **missing completely at random (MCAR)**, meaning the missingness
 is unrelated to the data. There is nothing to explain, and nothing to fix beyond
-dropping those rows.
+dropping those rows. However, `sex` is missing at the visit level rather than the
+child level - a child's other visits usually carry a usable value. These rows
+are recovered when we consider consistency.
 
 ```{r completeness-drop}
 # TODO: weight_kg and height_cm were confirmed MCAR by the bureau - drop rows
@@ -348,18 +350,6 @@ cohort_clean <- cohort_clean |>
   left_join(fix_lookup, by = "person_id") |>
   mutate(sex_std = ___, dob = ___) |>
   select(-sex_fix, -dob_fix)
-```
-
-A handful of children never had a usable sex recorded on *any* visit, so the
-majority vote has nothing to resolve and `sex_std` comes back `NA`. There is
-no fix for a value that was never captured, so you drop them.
-
-```{r consistency-drop-unresolved}
-# TODO: drop rows where sex_std is still NA
-cohort_clean <- cohort_clean |>
-  filter(___)
-
-nrow(cohort_clean)
 ```
 
 ---

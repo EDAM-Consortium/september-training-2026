@@ -127,7 +127,7 @@ Three things are already visible:
 
 * **`weight_kg` maximum in the thousands** - grams in a kilogram field.
 * **`height_cm` minimum well under 1** - heights entered in metres.
-* **`weight_kg`, `height_cm`, and `muac_mm` all have missing values.**
+* **`height_cm`, `muac_mm`, `sex`, and `weight_kg` all have missing values.**
   That is check 1 - how much, and does it cluster anywhere?
 
 Every check below works on `cohort_clean` - a single object you build up as you
@@ -154,11 +154,13 @@ cohort_clean |>
   arrange(desc(pct_missing))
 ```
 
-You raise `weight_kg`, `height_cm` and `muac_mm` with the regional bureau. They
-come back having already looked into two of the three: `weight_kg` and
+You raise `weight_kg`, `height_cm`, `sex` and `muac_mm` with the regional bureau.
+They come back having already looked into three of the four: `weight_kg` and
 `height_cm` are **missing completely at random (MCAR)**, meaning the missingness
 is unrelated to the data. There is nothing to explain, and nothing to fix beyond
-dropping those rows.
+dropping those rows. However, `sex` is missing at the visit level rather than the
+child level - a child's other visits usually carry a usable value. These rows
+are recovered when we consider consistency.
 
 ```{r completeness-drop}
 cohort_clean <- cohort_clean |>
@@ -278,8 +280,8 @@ Alongside fixing sex and woreda, you also convert age to a single unit, since
 some rows record years and others months.
 
 ```{r validity-fix}
-sex_lookup <- c("f" = "F", "female" = "F", "2" = "F",
-                "m" = "M", "male"   = "M", "1" = "M")
+sex_lookup <- c("f" = "F", "female" = "F", "1" = "M",
+                "m" = "M", "male"   = "M", "2" = "F")
 
 cohort_clean <- cohort_clean |>
   mutate(
@@ -337,17 +339,6 @@ cohort_clean <- cohort_clean |>
   left_join(fix_lookup, by = "person_id") |>
   mutate(sex_std = sex_fix, dob = dob_fix) |>
   select(-sex_fix, -dob_fix)
-```
-
-A handful of children never had a usable sex recorded on *any* visit, so the
-majority vote has nothing to resolve and `sex_std` comes back `NA`. There is
-no fix for a value that was never captured, so you drop them.
-
-```{r consistency-drop-unresolved}
-cohort_clean <- cohort_clean |>
-  filter(!is.na(sex_std))
-
-nrow(cohort_clean)
 ```
 
 ---
@@ -460,8 +451,8 @@ someone else.
 The same fixes, collected into a single pipeline, are given below:
 
 ```{r pipeline-single-block, eval=FALSE}
-sex_lookup <- c("f" = "F", "female" = "F", "2" = "F",
-                "m" = "M", "male"   = "M", "1" = "M")
+sex_lookup <- c("f" = "F", "female" = "F", "1" = "M",
+                "m" = "M", "male"   = "M", "2" = "F")
 
 most_common <- function(x) {
   x <- x[!is.na(x)]
@@ -484,13 +475,11 @@ cohort_clean <- read_csv("data/nutrition_screening.csv") |>
     woreda_std = str_to_title(str_squish(woreda_name)),
     age_months = if_else(age_unit == "months", age_value, age_value * 12)
   ) |>
-  # 4. Consistency: resolve sex/dob to each person's majority value; drop
-  #    the children a majority vote can't resolve at all
+  # 4. Consistency: resolve sex/dob to each person's majority value
   group_by(person_id) |>
   mutate(sex_std = most_common(sex_std),
          dob     = as.Date(most_common(dob))) |>
   ungroup() |>
-  filter(!is.na(sex_std)) |>
   # 5. Uniqueness: drop exact duplicates, keep the newest same-day entry
   distinct() |>
   group_by(person_id, visit_date) |>
@@ -515,8 +504,7 @@ Whichever approach you take, write down what you did and what you assumed.
   Assumption: the codes `1`/`2` map to `M`/`F` as given, and title-casing
   plus trimming collapses every typo without merging two real woredas.
 * **Consistency.** Sex and date of birth resolved by majority vote across a
-  person's own visits; the children left with no usable sex on any visit
-  were dropped.
+  person's own visits.
   Assumption: the most frequent value is the correct one. When there is a tie,
   you take the earliest date, and `F` over `M` since it is alphabetically
   smaller.
