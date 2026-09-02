@@ -8,9 +8,9 @@ recommend running the material yourself (see below).
 
 ## Materials
 
-- [**Session 1: Ethiopia Nutrition & Rainfall**](session_1/session_1_SOLUTIONS.Rmd) - a tutorial on
+- [**Session 1: cleaning and exporing data**](session_1/session_1_SOLUTIONS.Rmd) - a tutorial on
   how to clean your data, work with shapefiles, and use descriptive plots to answer policy questions.
-- [**Session 2: XGBoost & SHAP**](session_2/xgboost_shap_workflow_tutorial.Rmd) - a tutorial on
+- [**Session 2: creating an explainable ML pipeline**](session_2/xgboost_shap_workflow_tutorial.Rmd) - a tutorial on
   explainable AI, covering how to train a model (XGBoost) and interpret SHAP values.
 
 ## Running the material yourself
