@@ -137,7 +137,7 @@
     "href": "index.html#running-the-material-yourself",
     "title": "EDAM Training",
     "section": "Running the material yourself",
-    "text": "Running the material yourself\nTo run the code, clone or download this repository, then open the .Rmd file for the session you want, leaving it inside its own folder. Keep each session’s data/ folder alongside its .Rmd — the code reads data using paths relative to that folder.\nNote that session 1 comes in two versions: an exercise version (session_1/session_1_EXERCISES.Rmd), which has blanks for you to fill in and questions to answer based on your results, and a solutions version (session_1/session_1_SOLUTIONS.Rmd), which is the one rendered on this website. We suggest you try the exercises first and consult the solutions when you get stuck."
+    "text": "Running the material yourself\nTo run the code, clone the repository (https://github.com/EDAM-Consortium/september-training-2026) or download it as a zip file, then open the .Rmd file for the session you want, leaving it inside its own folder. Keep each session’s data/ folder alongside its .Rmd — the code reads data using paths relative to that folder.\nNote that session 1 comes in two versions: an exercise version (session_1/session_1_EXERCISES.Rmd), which has blanks for you to fill in and questions to answer based on your results, and a solutions version (session_1/session_1_SOLUTIONS.Rmd), which is the one rendered on this website. We suggest you try the exercises first and consult the solutions when you get stuck."
   },
   {
     "objectID": "session_1/session_1_SOLUTIONS.html",
