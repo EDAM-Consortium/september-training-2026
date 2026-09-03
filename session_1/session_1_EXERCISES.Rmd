@@ -1,5 +1,5 @@
 ---
-title: "EDAM Training - Parts 1-3 (Exercises)"
+title: "EDAM training - cleaning and exporing data (exercises)"
 output:
   html_document:
     toc: true
@@ -226,8 +226,8 @@ affects.
 cohort_clean |>
   summarise(
     weight_bad = sum(weight_kg > 30, na.rm = TRUE),
-    height_bad = sum(height_cm < 40,  na.rm = TRUE),
-    age_bad    = sum(age_unit == "years" & age_value > 5, na.rm = TRUE)
+    height_bad = sum(height_cm < 40, na.rm = TRUE),
+    age_bad = sum(age_unit == "years" & age_value > 5, na.rm = TRUE)
   )
 ```
 
@@ -252,9 +252,9 @@ figure out the cause.
 # together with age_value > 5 is really months.
 cohort_clean <- cohort_clean |>
   mutate(
-    age_unit   = if_else(___, "months", age_unit),
-    weight_kg  = if_else(___, weight_kg / 1000, weight_kg),
-    height_cm  = if_else(___, ___, ___)
+    age_unit = if_else(___, "months", age_unit),
+    weight_kg = if_else(___, weight_kg / 1000, weight_kg),
+    height_cm = if_else(___, ___, ___)
   )
 ```
 
@@ -276,7 +276,7 @@ sampled woredas plus one "Unknown". You check both before fixing anything.
 count(cohort_clean, sex)
 
 # Woredas
-c(raw_names     = n_distinct(cohort_clean$woreda_name),
+c(raw_names = n_distinct(cohort_clean$woreda_name),
   cleaned_names = n_distinct(str_to_title(str_squish(cohort_clean$woreda_name))))
 ```
 
@@ -287,11 +287,11 @@ some rows record years and others months.
 # TODO: sex comes in as f/female/2 (female) and m/male/1 (male). Map each
 # code onto "F" or "M".
 sex_lookup <- c(___ = ___, "female" = ___, ___ = "M",
-                ___ = ___, "male"   = ___, ___ = "F")
+                ___ = ___, "male" = ___, ___ = "F")
 
 cohort_clean <- cohort_clean |>
   mutate(
-    sex_std    = unname(sex_lookup[str_to_lower(sex)]),
+    sex_std = unname(sex_lookup[str_to_lower(sex)]),
     # TODO: woreda_std should be woreda_name in title case, with extra/stray
     # whitespace squished out
     woreda_std = ___,
@@ -717,8 +717,8 @@ generous: it counts anything touching the polygon at all, including its edge.
 joined <- st_join(posts_sf, woredas_ll, join = ___)
 
 c(total_posts = nrow(joined),
-  posts_matched  = sum(!is.na(joined$wor_pcode)),
-  posts_unmatched  = sum(is.na(joined$wor_pcode)))
+  posts_matched = sum(!is.na(joined$wor_pcode)),
+  posts_unmatched = sum(is.na(joined$wor_pcode)))
 ```
 
 The order of the arguments matters: `st_join()` keeps the first object's rows and
@@ -898,7 +898,8 @@ zone_rain <- zones |>
 # Rainfall for 2022-06-01
 ggplot() +
   geom_sf(data = eth, fill = "gray90", colour = "black", linewidth = 0.2) +
-  geom_sf(data = zone_rain |> filter(date == as.Date("2022-06-01")), aes(fill = rain_anom_pct), colour = "black", linewidth = 0.3) +
+  geom_sf(data = zone_rain |> filter(date == as.Date("2022-06-01")), 
+  aes(fill = rain_anom_pct), colour = "black", linewidth = 0.3) +
   scale_fill_viridis_c() +
   labs(title = "Rainfall, June 2022",
        subtitle = "Zone shapes are the dissolved sample, not the true extent",
@@ -935,7 +936,9 @@ cohort_geo <- cohort |>
 cohort_geo_before <- nrow(cohort_geo)
 
 combined_dataset <- cohort_geo |>
-  st_join(eth |> select(wor_pcode, zone_pcode, zone_name, reg_pcode, reg_name), join = st_within) |>
+  st_join(eth |>
+   select(wor_pcode, zone_pcode, zone_name, reg_pcode, reg_name),
+   join = st_within) |>
   st_drop_geometry()
 
 c(before = nrow(cohort_geo), after = nrow(combined_dataset))
@@ -1013,8 +1016,8 @@ combined_dataset <- combined_dataset |>
 
 combined_dataset |>
   summarise(
-    children        = n(),
-    no_zscore       = sum(is.na(waz))
+    children = n(),
+    no_zscore = sum(is.na(waz))
   )
 ```
 
@@ -1075,15 +1078,15 @@ who are underweight and who are severely underweight.
 # flag each child as underweight, severe, or total_underweight (either one)
 combined_dataset <- combined_dataset |>
   mutate(
-    underweight       = ___,
-    severe            = ___,
+    underweight = ___,
+    severe = ___,
     total_underweight = underweight | severe
   )
 
 combined_dataset |>
   summarise(
-    pct_underweight       = round(100 * mean(underweight), 1),
-    pct_severe            = round(100 * mean(severe), 1),
+    pct_underweight = round(100 * mean(underweight), 1),
+    pct_severe = round(100 * mean(severe), 1),
     pct_total_underweight = round(100 * mean(total_underweight), 1)
   )
 ```
@@ -1104,14 +1107,14 @@ zone_pop <- combined_dataset |>
 zone_summary <- combined_dataset |>
   group_by(zone_pcode) |>
   summarise(
-    n_screened                = n(),
-    n_underweight             = sum(underweight),
-    n_severe                  = sum(severe),
-    n_total_underweight       = sum(total_underweight),
-    # TODO: proportion of screened children who are underweight, use n_total_underweight as
-    # the denominator
+    n_screened = n(),
+    n_underweight = sum(underweight),
+    n_severe = sum(severe),
+    n_total_underweight = sum(total_underweight),
+    # TODO: proportion of screened children who are underweight, 
+    # use n_total_underweight as the denominator
     prop_screened_underweight = ___,
-    .groups                   = "drop"
+    .groups = "drop"
   ) |>
   left_join(zone_pop, by = "zone_pcode")
 
@@ -1121,7 +1124,7 @@ zone_data <- zones |> left_join(zone_summary, by = "zone_pcode")
 You define a helper function to speed up the plotting, then use it to create
 three maps.
 
-```{r three-maps, fig.width=12, fig.height=5, warning=FALSE}
+```{r three-maps, fig.width=7, fig.height=15, warning=FALSE}
 p <- function(var, title, fill_title, labels = scales::label_number()) {
   bb <- st_bbox(filter(zone_data, sampled == TRUE))
 
@@ -1139,11 +1142,11 @@ p <- function(var, title, fill_title, labels = scales::label_number()) {
 
 # TODO: fill in each blank with the column to map, as a quoted string (e.g.
 # "n_severe") 
-p(___ , "a) Underweight children",   "Children") +
-p(___ , "b) Children screened",      "Children") +
+p(___ , "a) Underweight children", "Children") +
+p(___ , "b) Children screened", "Children") +
 p(___ , "c) Proportion underweight", "Proportion",
   labels = scales::label_percent()) +
-  plot_layout(ncol = 3)
+  plot_layout(ncol = 1)
 ```
 
 **Question:** Compare Ilu Aba Bora and Arsi across the three maps above. What do you notice?
@@ -1151,7 +1154,7 @@ p(___ , "c) Proportion underweight", "Proportion",
 Colour on a map is hard to rank precisely. The same children as bars, sorted and
 split by severity, make the point more clearly:
 
-```{r severity-bars, fig.height=4.5}
+```{r severity-bars, fig.height=9}
 zone_severity <- zone_data |>
   st_drop_geometry() |>
   filter(sampled) |>
@@ -1182,7 +1185,7 @@ q(___, "Underweight children",
   "Children") +
 q(___, "Proportion of children screened",
   "Proportion", labels = scales::label_percent()) +
-  plot_layout(ncol = 2)
+  plot_layout(ncol = 1)
 ```
 
 ---
@@ -1194,7 +1197,7 @@ But that proportion only describes the children who came, not the children who
 live there. To take this into account you need to investigate coverage. You add
 coverage to `zone_data` and map it alongside the under-5 population.
 
-```{r coverage, fig.width=9, fig.height=5}
+```{r coverage, fig.width=7, fig.height=10}
 # TODO: coverage = children screened as a proportion of the under-5 population
 zone_data <- zone_data |>
   mutate(coverage = ___)
@@ -1203,11 +1206,11 @@ p("pop_under5", "d) Under-5 population",
   "Children under-5") +
 p("coverage", "e) Coverage (screened ÷ under-5 population)",
   "Screened", labels = scales::label_percent(accuracy = 0.1)) +
-  plot_layout(ncol = 2)
+  plot_layout(ncol = 1)
 ```
 
-**Question:** Looking at maps (d) and (e), how does coverage vary across zones? Which zone has
-the highest coverage, and which the lowest?
+**Question:** Looking at maps (d) and (e), how does coverage vary across zones?
+ Which zone has the highest coverage, and which the lowest?
 
 Ranking the zones by the proportion underweight, alongside their coverage,
 gives:
@@ -1221,15 +1224,15 @@ zone_data |>
     zone_name,
     n_screened,
     n_total_underweight,
-    # TODO: proportion of screened children who are underweight, use n_total_underweight as
-    # the denominator
+    # TODO: proportion of screened children who are underweight,
+    #  use n_total_underweight as the denominator
     pct_underweight = round(100 * ___, 1),
-    pct_coverage    = round(100 * coverage, 2)
+    pct_coverage = round(100 * coverage, 2)
   )
 ```
 
-**So, which zones in Oromia have the highest malnutrition, based on the ranking above? What
-limitations should you flag before reporting this?**
+**So, which zones in Oromia have the highest malnutrition, based on the ranking above? 
+What limitations should you flag before reporting this?**
 
 ---
 
@@ -1247,10 +1250,10 @@ Start by looking at the proportion underweight and `rain_anom_pct` overall.
 ```{r time-plot, fig.height=5}
 monthly <- combined_dataset |>
   group_by(month) |>
-  summarise(n_screened          = n(),
+  summarise(n_screened = n(),
             n_total_underweight = sum(total_underweight),
-            prop                = n_total_underweight / n_screened,
-            rain_pct            = mean(rain_anom_pct, na.rm = TRUE),
+            prop = n_total_underweight / n_screened,
+            rain_pct = mean(rain_anom_pct, na.rm = TRUE),
             .groups = "drop")
 
 # TODO: plot rainfall over time - map x to the time variable you grouped by
@@ -1328,7 +1331,7 @@ ggplot(monthly_shifted, aes(month)) +
   geom_line(aes(y = rain_lag_pct), colour = "#4A90D9", linewidth = 0.9, na.rm = TRUE) +
   geom_line(aes(y = prop * scale_factor), colour = "#D95F02", linewidth = 0.9) +
   scale_y_continuous(
-    name     = "Rainfall 3-6 months earlier (% of normal)",
+    name = "Rainfall 3-6 months earlier (% of normal)",
     sec.axis = sec_axis(~ . / scale_factor, name = "Proportion underweight",
                          labels = scales::percent)
   ) +
@@ -1336,14 +1339,14 @@ ggplot(monthly_shifted, aes(month)) +
        subtitle = "Blue: rainfall 3-6 months earlier (left axis). Orange: proportion underweight (right axis).",
        x = NULL, caption = sim_caption) +
   theme_bw() +
-  theme(plot.title      = element_text(hjust = 0.5),
-        plot.subtitle   = element_text(hjust = 0.5),
-        axis.title.y.left  = element_text(colour = "#4A90D9"),
+  theme(plot.title = element_text(hjust = 0.5),
+        plot.subtitle = element_text(hjust = 0.5),
+        axis.title.y.left = element_text(colour = "#4A90D9"),
         axis.title.y.right = element_text(colour = "#D95F02"),
         panel.border = element_blank(),
         axis.line.x.bottom = element_line(colour = "black"),
-        axis.line.y.left   = element_line(colour = "black"),
-        axis.line.y.right  = element_line(colour = "black"))
+        axis.line.y.left = element_line(colour = "black"),
+        axis.line.y.right = element_line(colour = "black"))
 ```
 
 ---
@@ -1416,7 +1419,7 @@ yearly_corr <- zone_month |>
   summarise(
     # TODO: correlation between prop and rain_lag for this year, use the cor function
     correlation = ___,
-    n_obs       = sum(!is.na(prop) & !is.na(rain_lag)),
+    n_obs = sum(!is.na(prop) & !is.na(rain_lag)),
     .groups = "drop"
   )
 
@@ -1445,7 +1448,7 @@ zone_corr <- zone_month |>
   group_by(zone_pcode) |>
   # Same as above: a plain cor() is safe since prop and rain_lag are already
   # complete, but use = "complete.obs" is what you'd reach for if either had NAs.
-  summarise(n_months    = n(),
+  summarise(n_months = n(),
             # TODO: correlation between prop and rain_lag for this zone
             correlation = ___,
             .groups = "drop")
