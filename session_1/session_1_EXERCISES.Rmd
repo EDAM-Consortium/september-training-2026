@@ -128,7 +128,7 @@ health post, typed in by hand.
 | `height_cm` | number | Child's height/length in centimetres (cm) |
 | `muac_mm` | number | Mid-upper arm circumference (MUAC), in millimetres (mm) |
 ```{r screening}
-screening <- read_csv("data/nutrition_screening.csv")
+screening <- read_csv("data/input/nutrition_screening.csv")
 ```
 
 ### What have you got?
@@ -461,7 +461,7 @@ everything in one place, which is easier to audit, rerun, and hand over to
 someone else.
 
 **Optional challenge:** once every fix above is working, try rewriting them as a single piped
-pipeline starting from `read_csv("data/nutrition_screening.csv")`, so the whole cleaning process
+pipeline starting from `read_csv("data/input/nutrition_screening.csv")`, so the whole cleaning process
 runs in one block.
 
 Whichever approach you take, write down what you did and assumed for each of the six dimensions
@@ -470,6 +470,13 @@ above (completeness, accuracy, validity, consistency, uniqueness, timeliness).
 ---
 
 ## Part 2 - Working with shapefiles
+
+```{r load-checkpoint-part2}
+# Didn't finish Part 1? Only this part's last task (attach-geography) needs
+# cohort_clean. Uncomment the line below to load a checkpoint and carry on -
+# you can come back and finish Part 1 properly later.
+# cohort_clean <- readRDS("data/checkpoints/part1_cohort_clean.rds")
+```
 
 In this part you focus on working with shapefiles and joining your various
 datasets to them. You will use two shapefiles. The first is supplied by the
@@ -486,7 +493,7 @@ database for country-wide context.
 | `geometry` | MULTIPOLYGON | The woreda's boundary shape, in UTM 37N. |
 
 ```{r woredas-shape}
-woredas <- st_read("data/woredas.shp", quiet = TRUE)
+woredas <- st_read("data/input/woredas.shp", quiet = TRUE)
 ```
 
 #### `eth.shp` - 1,148 national woredas, lon/lat (EPSG:4326)
@@ -508,7 +515,7 @@ together, so `zone_pcode` matches all 14 zones in the rainfall file.
 | `geometry` | MULTIPOLYGON | The woreda's boundary shape |
 
 ```{r eth-shape}
-eth <- st_read("data/eth.shp", quiet = TRUE)
+eth <- st_read("data/input/eth.shp", quiet = TRUE)
 ```
 
 ### 1. What is in a shapefile?
@@ -659,7 +666,7 @@ Locations of the health posts that captured data in the screening register
 | `lat` | number | Latitude. A few rows are missing entirely; one sits exactly on a woreda boundary, by design. |
 
 ```{r hps}
-posts <- read_csv("data/health_posts.csv")
+posts <- read_csv("data/input/health_posts.csv")
 ```
 
 You want to join the posts to one of your shapefiles so that you can see where
@@ -802,7 +809,7 @@ year.
 | `pop_under5` | number | Projected population under 5 years |
 
 ```{r wor_pop}
-pop <- read_csv("data/woreda_population.csv")
+pop <- read_csv("data/input/woreda_population.csv")
 ```
 
 You can also join a table to a shapefile as normal, as long as there is a
@@ -858,7 +865,7 @@ Monthly rainfall for each zone, already summarised from satellite data.
 | `rain_anom_pct` | number | `rain_mm` as a **percentage of `rain_lta_mm`**. 100 is normal, below 100 is drier than usual, above 100 is wetter |
 
 ```{r rainfall}
-rainfall <- read_csv("data/zone_rainfall.csv")
+rainfall <- read_csv("data/input/zone_rainfall.csv")
 ```
 
 Rainfall only exists at a zone level. You can either assume that each woreda
@@ -981,6 +988,14 @@ materials. When a spatial operation errors, try `st_is_valid()`,
 ---
 
 ## Part 3 - Building an outcome, and looking at it
+
+```{r load-checkpoint-part3}
+# Didn't finish Part 2? This part needs combined_dataset and zones from Part 2.
+# Uncomment the lines below to load checkpoints and carry on - you can come
+# back and finish Part 2 properly later.
+# combined_dataset <- readRDS("data/checkpoints/part2_combined_dataset.rds")
+# zones <- readRDS("data/checkpoints/part2_zones.rds")
+```
 
 ### 1. From a weight to an outcome
 

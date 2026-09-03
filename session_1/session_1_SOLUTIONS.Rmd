@@ -110,7 +110,7 @@ health post, typed in by hand.
 | `height_cm` | number | Child's height/length in centimetres (cm) |
 | `muac_mm` | number | Mid-upper arm circumference (MUAC), in millimetres (mm) |
 ```{r screening}
-screening <- read_csv("data/nutrition_screening.csv")
+screening <- read_csv("data/input/nutrition_screening.csv")
 ```
 
 ### What have you got?
@@ -460,7 +460,7 @@ most_common <- function(x) {
   names(sort(table(x), decreasing = TRUE))[1]
 }
 
-cohort_clean <- read_csv("data/nutrition_screening.csv") |>
+cohort_clean <- read_csv("data/input/nutrition_screening.csv") |>
   # 1. Completeness: drop rows missing MCAR fields; leave muac_mm as is
   filter(!is.na(weight_kg), !is.na(height_cm)) |>
   # 2. Accuracy: repair confirmed unit errors in place
@@ -534,7 +534,7 @@ database for country-wide context.
 | `geometry` | MULTIPOLYGON | The woreda's boundary shape, in UTM 37N. |
 
 ```{r woredas-shape}
-woredas <- st_read("data/woredas.shp", quiet = TRUE)
+woredas <- st_read("data/input/woredas.shp", quiet = TRUE)
 ```
 
 #### `eth.shp` - 1,148 national woredas, lon/lat (EPSG:4326)
@@ -556,7 +556,7 @@ together, so `zone_pcode` matches all 14 zones in the rainfall file.
 | `geometry` | MULTIPOLYGON | The woreda's boundary shape |
 
 ```{r eth-shape}
-eth <- st_read("data/eth.shp", quiet = TRUE)
+eth <- st_read("data/input/eth.shp", quiet = TRUE)
 ```
 
 ### 1. What is in a shapefile?
@@ -707,7 +707,7 @@ Locations of the health posts that captured data in the screening register
 | `lat` | number | Latitude. A few rows are missing entirely; one sits exactly on a woreda boundary, by design. |
 
 ```{r hps}
-posts <- read_csv("data/health_posts.csv")
+posts <- read_csv("data/input/health_posts.csv")
 ```
 
 You want to join the posts to one of your shapefiles so that you can see where
@@ -849,7 +849,7 @@ year.
 | `pop_under5` | number | Projected population under 5 years |
 
 ```{r wor_pop}
-pop <- read_csv("data/woreda_population.csv")
+pop <- read_csv("data/input/woreda_population.csv")
 ```
 
 You can also join a table to a shapefile as normal, as long as there is a
@@ -904,7 +904,7 @@ Monthly rainfall for each zone, already summarised from satellite data.
 | `rain_anom_pct` | number | `rain_mm` as a **percentage of `rain_lta_mm`**. 100 is normal, below 100 is drier than usual, above 100 is wetter |
 
 ```{r rainfall}
-rainfall <- read_csv("data/zone_rainfall.csv")
+rainfall <- read_csv("data/input/zone_rainfall.csv")
 ```
 
 Rainfall only exists at a zone level. You can either assume that each woreda
