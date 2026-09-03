@@ -1,6 +1,6 @@
 # EDAM Training
 
-Training materials for the EDAM course.
+Materials for the EDAM September 2026 training.
 
 ## What to download
 
