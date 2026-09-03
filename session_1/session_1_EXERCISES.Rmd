@@ -885,7 +885,7 @@ zones <- eth |>
 nrow(zones)
 
 ggplot(zones) +
-  geom_sf(aes(fill = sampled), colour = "black", linewidth = 0.3, show.legend = FALSE) +
+  geom_sf(aes(fill = sampled), colour = "black", linewidth = 0.2, show.legend = FALSE) +
   labs(title = "Dissolved",
        subtitle = "14 zone shapes") +
   theme_void() +
@@ -904,7 +904,7 @@ zone_rain <- zones |>
 
 # Rainfall for 2022-06-01
 ggplot() +
-  geom_sf(data = eth, fill = "gray90", colour = "black", linewidth = 0.2) +
+  geom_sf(data = zones, fill = "gray90", colour = "black", linewidth = 0.2) +
   geom_sf(data = zone_rain |> filter(date == as.Date("2022-06-01")), 
   aes(fill = rain_anom_pct), colour = "black", linewidth = 0.3) +
   scale_fill_viridis_c() +
