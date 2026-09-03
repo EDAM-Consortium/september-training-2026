@@ -10,16 +10,14 @@ recommend running the material yourself (see below).
 
 - [**Session 1: cleaning and exporing data**](session_1/session_1_SOLUTIONS.Rmd) - a tutorial on
   how to clean your data, work with shapefiles, and use descriptive plots to answer policy questions.
-- [**Session 2: creating an explainable ML pipeline**](session_2/xgboost_shap_workflow_tutorial.Rmd) - a tutorial on
-  explainable AI, covering how to train a model (XGBoost) and interpret SHAP values.
+- [**Session 2: creating an explainable AI (exAI) pipeline**](session_2/xgboost_shap_workflow_tutorial.Rmd) - a tutorial on
+  explainable AI, covering how to train a model (XGBoost) and interpret SHAP values for risk-factor analysis.
 
 ## Running the material yourself
 
-To run the code, clone the repository (<https://github.com/EDAM-Consortium/september-training-2026>)
+To run the code, [clone the repository](https://github.com/EDAM-Consortium/september-training-2026)
 or [download it as a zip file](https://github.com/EDAM-Consortium/september-training-2026/archive/refs/heads/main.zip),
-then open the `.Rmd` file for the session you want, leaving it inside its own folder. Keep each
-session's `data/` folder alongside its `.Rmd` — the code reads data using paths relative to that
-folder.
+then open the `.Rmd` file for the session you want, leaving it inside its own folder.
 
 Note that session 1 comes in two versions: an exercise version (`session_1/session_1_EXERCISES.Rmd`), which
 has blanks for you to fill in and questions to answer based on your results, and a solutions version

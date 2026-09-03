@@ -19,7 +19,7 @@ website:
       - href: session_1/session_1_SOLUTIONS.Rmd
         text: "Session 1: cleaning and exporing data"
       - href: session_2/xgboost_shap_workflow_tutorial.Rmd
-        text: "Session 2: creating an explainable ML pipeline"
+        text: "Session 2: creating an exAI pipeline"
 
 format:
   html:

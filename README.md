@@ -6,12 +6,11 @@ Materials for the EDAM September 2026 training.
 
 Clone or download this whole repository, then open the `.Rmd` file for the session you're working on **inside that session's own folder**:
 
-- `session_1/session_1_EXERCISES.Rmd`: work through this one yourself. Needs `session_1/data/`.
+- `session_1/session_1_EXERCISES.Rmd`: work through this one yourself. Needs `session_1/data/*`.
 - `session_1/session_1_SOLUTIONS.Rmd`: the worked answer key for session 1, sharing the same `session_1/data/`. This is published on the course site (see below).
-- `session_2/xgboost_shap_workflow_tutorial.Rmd`: needs the CSVs/PNG in `session_2/`.
+- `session_2/xgboost_shap_workflow_tutorial.Rmd`: the session 2 tutorial published on the course site (see below). 
 
-You can also read the rendered session 1 (solutions) and session 2 walkthrough online (no R required) via
-the published course site.
+You can also read the rendered session 1 (solutions) and session 2 walkthrough online (no R required) via the published [course site](https://edam-consortium.github.io/september-training-2026/).
 
 ## Setup
 This repo uses [renv](https://rstudio.github.io/renv/) to pin package versions. If you're familiar with it, after cloning, open the project in your desired IDE and run:
