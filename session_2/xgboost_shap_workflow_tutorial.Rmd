@@ -689,6 +689,8 @@ and individual case explanations — typically exported for reporting
 rather than kept only as plot objects.
 
 ```{r step8-outputs}
+dir.create("outputs", showWarnings = FALSE)
+
 # Ranked importance table — correlated_with carries the Step 3 flag
 # into the export, so the caution survives outside of R too
 shap_importance <- sv_importance(shp, kind = "bar", max_display = length(predictor_cols))$data |>
@@ -699,7 +701,7 @@ shap_importance <- sv_importance(shp, kind = "bar", max_display = length(predict
   select(feature, mean_abs_shap = value, correlated_with) |>
   arrange(desc(mean_abs_shap))
 
-write_csv(shap_importance, "shap_importance.csv")
+write_csv(shap_importance, "outputs/shap_importance.csv")
 print(shap_importance)
 
 # Direction of effect: mean signed SHAP value per feature (positive =
@@ -713,7 +715,7 @@ shap_direction <- as_tibble(shp$S) |>
   ) |>
   arrange(desc(abs(mean_signed_shap)))
 
-write_csv(shap_direction, "shap_direction.csv")
+write_csv(shap_direction, "outputs/shap_direction.csv")
 print(shap_direction)
 
 # Individual case explanation, exported alongside the model's prediction
@@ -725,7 +727,7 @@ case_explanation <- as_tibble(shp$S[highest_risk_idx, , drop = FALSE]) |>
   ) |>
   arrange(desc(abs(shap_value)))
 
-write_csv(case_explanation, "case_explanation_example.csv")
+write_csv(case_explanation, "outputs/case_explanation_example.csv")
 print(case_explanation)
 ```
 
