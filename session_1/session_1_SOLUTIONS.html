@@ -2075,7 +2075,7 @@ give correct results for longitude/latitude data</code></pre>
 </div>
 </div>
 <p><strong>Question:</strong> Looking at the bar chart above, over which range of lags does rainfall most strongly correlate with the proportion underweight? From here you use the average across that window, <code>rain_lag</code>, rather than picking a single month out of it.</p>
-<p><strong>Answer:</strong> Rain in the same month, or the month before, tells you almost nothing - correlation is close to zero through lag 2. It jumps sharply at 3 months, stays strong through 6, then fades back towards zero by 7. From here you use the average of lags 3-6, <code>rain_lag</code>, rather than picking a single month out of that window.</p>
+<p><strong>Answer:</strong> Rain in the same month, or the month before, tells you almost nothing - correlation is low through lag 2. It increases sharply at 3 months, stays strong through 6, then fades back towards zero by 7. From here you use the average of lags 3-6, <code>rain_lag</code>, rather than picking a single month out of that window.</p>
 <p>Based on the above, you plot the average rainfall at a lag of 3-6 months, and overlay the two series so that they move together. The relationship should be clearer now.</p>
 <div class="cell" data-layout-align="center">
 <details open="" class="code-fold">
