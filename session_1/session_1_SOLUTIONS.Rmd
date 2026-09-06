@@ -1170,7 +1170,7 @@ zone_data <- zones |> left_join(zone_summary, by = "zone_pcode")
 You define a helper function to speed up the plotting, then use it to create
 three maps.
 
-```{r three-maps, fig.width=7, fig.height=15, warning=FALSE}
+```{r three-maps, fig.width=9, fig.height=18, warning=FALSE}
 p <- function(var, title, fill_title, labels = scales::label_number()) {
   bb <- st_bbox(filter(zone_data, sampled == TRUE))
 
@@ -1503,7 +1503,7 @@ comparable with a full one.
 
 **Is it the same in every zone, or concentrated in a few?**
 
-```{r zone-corr-map, fig.height=5, warning=FALSE}
+```{r zone-corr-map, fig.width=9, fig.height=6, warning=FALSE}
 zone_corr <- zone_month |>
   group_by(zone_pcode) |>
   # Same as above: safe without use = "complete.obs" here, since prop and
