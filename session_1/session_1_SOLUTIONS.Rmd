@@ -123,7 +123,9 @@ head(screening)
 summary(screening)
 ```
 
-Three things are already visible:
+**Question:** What data quality issues can you already spot in the output above?
+
+**Answer:** Three things are already visible:
 
 * **`weight_kg` maximum in the thousands** - grams in a kilogram field.
 * **`height_cm` minimum well under 1** - heights entered in metres.
@@ -182,7 +184,10 @@ cohort_clean |>
   arrange(desc(muac_missing))
 ```
 
-Two health posts stand out, one missing 80% of its MUAC readings and
+**Question:** Does the missingness above look evenly spread across health posts, or does it
+cluster? What does that suggest about the mechanism, and does it match the bureau's MAR guess?
+
+**Answer:** Two health posts stand out, one missing 80% of its MUAC readings and
 another 58%, while every other post has none at all. That confirms the
 bureau's guess: the missingness lines up with `health_post`, a column you can
 see, not with the MUAC value itself. This is missing at random (MAR). Most
@@ -191,15 +196,18 @@ likely, neither post has a working MUAC tape.
 `muac_mm` is not used anywhere else in this analysis, so you do not repair this
 missingness.
 
-**Since you take this to be MAR, how would you address the missingness?** The
-missingness is explained by an observed column, so condition on that column. If
+**Question:** Since you take this to be MAR, how would you address the missingness?
+
+**Answer:** The missingness is explained by an observed column, so condition on that column. If
 you needed `muac_mm` downstream, you would impute it using `health_post` as a
 predictor rather than a single overall mean that ignores which posts are
 measuring at all. Here it is not used downstream, so leave it missing and
 document why.
 
-**What would you need to see instead for `muac_mm` to be MNAR? Give a concrete
-example.** The missingness would have to depend on the MUAC value itself. For
+**Question:** What would you need to see instead for `muac_mm` to be MNAR? Give a concrete
+example.
+
+**Answer:** The missingness would have to depend on the MUAC value itself. For
 example, fieldworkers skipping the tape on children who looked visibly thin,
 perhaps because those children were fast-tracked into treatment. The lowest
 readings would then be the ones missing. Comparing `weight_kg` between children
@@ -410,7 +418,10 @@ cohort_clean |>
   head(5)
 ```
 
-Jimma Town has a median reporting lag of 97 days, about three months, while
+**Question:** How does Jimma Town's reporting lag compare to the other woredas above? Does
+that match what the bureau told you, and what might explain it?
+
+**Answer:** Jimma Town has a median reporting lag of 97 days, about three months, while
 every other woreda sits at 7 days, about a week, which aligns with what the
 bureau told you. This means that most woredas report data soon after a visit,
 but that Jimma Town may have a backlog or another issue preventing prompt
@@ -428,7 +439,10 @@ cohort_clean |>
   tail(4)
 ```
 
-The final month, December 2024, holds just 219 records, well under a
+**Question:** How does the final month's record count compare to the months before it? Given
+that, and the reporting lag you just saw, should you keep it as-is?
+
+**Answer:** The final month, December 2024, holds just 219 records, well under a
 typical month's roughly 540. You assume it is a partial month and drop it.
 
 ```{r timeliness-fix}
@@ -678,14 +692,19 @@ ggplot(filter(eth, sampled)) +
   theme(plot.title = element_text(hjust = 0.5))
 ```
 
-**Note the difference between plot 4 and plot 5.** `coord_sf()` and `filter()`
+**Question:** Compare plot 4 and plot 5. What's the difference between how `coord_sf()` and
+`filter()` handle the woredas outside your sample?
+
+**Answer:** `coord_sf()` and `filter()`
 answer different questions. `coord_sf()` restricts the view and keeps
 neighbouring woredas visible at the edges. `filter()` deletes them, so the study
 area floats in white space with no borders to locate it against. Zoom when you
 want context; filter when you genuinely mean "these and only these".
 
-**You need to choose a plot to show the sampled woredas in a report. Which
-would you choose?** Either the third or the fourth plot. The fifth is not wrong,
+**Question:** You need to choose a plot to show the sampled woredas in a report. Which
+would you choose?
+
+**Answer:** Either the third or the fourth plot. The fifth is not wrong,
 but it removes the context that lets a reader judge coverage. Someone seeing
 scattered fragments assumes that is the study area, rather than a sample
 within a much larger region.
@@ -802,7 +821,10 @@ bb <- st_bbox(eth)
 bb
 ```
 
-Comparing these coordinates against Ethiopia's bounding box, it seems that the
+**Question:** Compare the coordinates of the unmatched posts to Ethiopia's bounding box above.
+What do you think has gone wrong with these rows?
+
+**Answer:** Comparing these coordinates against Ethiopia's bounding box, it seems that the
 lon and lat values have been entered the wrong way round, putting these posts in
 the Mediterranean.
 
@@ -880,7 +902,11 @@ sum(is.na(by_name$total_pop))
 by_name |> filter(is.na(total_pop)) |> st_drop_geometry() |> select(wor_name)
 ```
 
-Four woredas fail. The population file spells each with a trailing vowel
+**Question:** Look at the woredas that failed to match by name above, and compare their
+spelling to the equivalent entries in `woreda_population.csv`. What's going wrong, and what does
+this tell you about joining on names versus codes?
+
+**Answer:** Four woredas fail. The population file spells each with a trailing vowel
 swapped for `e`: `Mulo` should have matched `Mule`, `Adama Tulu Jido
 Kombolcha` should have matched `Adama Tulu Jido Kombolche`, `Bule Hora`
 should have matched `Bule Hore`, and `Borecha` should have matched `Boreche`.
@@ -1091,9 +1117,13 @@ combined_dataset |>
         axis.line = element_line(colour = "black"))
 ```
 
-The curve is roughly normal, sitting to the left of zero, with a tail
-stretching past -2. That tail is the children who are underweight. Next you
-create a boxplot that splits the same distribution by zone.
+**Question:** Looking at the histogram above, what does the shape of the distribution tell you,
+especially relative to the -2/-3 cutoffs?
+
+**Answer:** The curve is roughly normal, sitting to the left of zero, with a tail
+stretching past -2. That tail is the children who are underweight.
+
+Next you create a boxplot that splits the same distribution by zone.
 
 ```{r box, fig.height=4}
 combined_dataset |>
@@ -1110,7 +1140,10 @@ combined_dataset |>
         axis.line = element_line(colour = "black"))
 ```
 
-Every zone has the same left tail, so the skew is not one bad zone dragging the
+**Question:** Compare the boxplots across zones. Is the left-skew you saw in the histogram
+common to every zone, or driven by a few? Do any zones stand out from the rest?
+
+**Answer:** Every zone has the same left tail, so the skew is not one bad zone dragging the
 rest down. Most boxes overlap heavily, with two exceptions: Ilu Aba Bora sits
 clearly below the others, and Arsi sits above.
 
@@ -1193,7 +1226,9 @@ p("prop_screened_underweight", "c) Proportion underweight", "Proportion",
   plot_layout(ncol = 1)
 ```
 
-**Compare Ilu Aba Bora and Arsi.** Map (a) shows the number of underweight
+**Question:** Compare Ilu Aba Bora and Arsi across the three maps above. What do you notice?
+
+**Answer:** Map (a) shows the number of underweight
 children and, read alone, it suggests that these are the worst-off zones in
 Oromia. But map (b) shows that the number of children screened is markedly
 different: Arsi screened the most of any zone, Ilu Aba Bora among the fewest.
@@ -1259,7 +1294,10 @@ p("coverage", "e) Coverage (screened ÷ under-5 population)",
   plot_layout(ncol = 1)
 ```
 
-Coverage is extremely poor across all zones. Arsi screened just 0.90% of its
+**Question:** Looking at maps (d) and (e), how does coverage vary across zones?
+Which zone has the highest coverage, and which the lowest?
+
+**Answer:** Coverage is extremely poor across all zones. Arsi screened just 0.90% of its
 under-5 population, the highest in the sample; West Hararge screened 0.31%, the
 lowest, despite having the largest under-5 population in the region.
 
@@ -1280,7 +1318,10 @@ zone_data |>
   )
 ```
 
-**So, which zones in Oromia have the highest malnutrition?** After adjusting for
+**Question:** So, which zones in Oromia have the highest malnutrition, based on the ranking above?
+What limitations should you flag before reporting this?
+
+**Answer:** After adjusting for
 the number of children screened, Ilu Aba Bora, East Hararge, Guji and Borena
 have the highest proportion of children underweight. In contrast, Arsi, North
 Shewa (OR), Jimma, and West Wellega have the lowest.
@@ -1338,7 +1379,10 @@ p_prop <- ggplot(monthly, aes(month, prop)) +
 p_rain / p_prop
 ```
 
-Rainfall (top) dips through 2021 and 2022, the sharpest part of the Horn of
+**Question:** Look at the two panels above. Does the proportion underweight move at the same
+time as rainfall, or with a delay?
+
+**Answer:** Rainfall (top) dips through 2021 and 2022, the sharpest part of the Horn of
 Africa drought (2020-2023) as it shows up in this data, while the proportion
 of children underweight (bottom) rises afterwards rather than at the same time. One explanation for the lag is the chain from poor
 rains to crop and livestock losses, then to household food insecurity, and
@@ -1368,7 +1412,11 @@ ggplot(lag_scan, aes(lag, correlation)) +
         axis.line = element_line(colour = "black"))
 ```
 
-Rain in the same month, or the month before, tells you almost nothing -
+**Question:** Looking at the bar chart above, over which range of lags does rainfall most
+strongly correlate with the proportion underweight? From here you use the average across that
+window, `rain_lag`, rather than picking a single month out of it.
+
+**Answer:** Rain in the same month, or the month before, tells you almost nothing -
 correlation is close to zero through lag 2. It jumps sharply at 3 months, stays
 strong through 6, then fades back towards zero by 7. From here you use the
 average of lags 3-6, `rain_lag`, rather than picking a single month out of that
@@ -1457,7 +1505,11 @@ zone_month |>
         axis.line = element_line(colour = "black"))
 ```
 
-There is a negative relationship between rainfall and the proportion of children
+**Question:** Looking at the scatter plot and fitted curve above, what's the relationship
+between lagged rainfall and the proportion of children underweight? Does it look the same across
+the whole range of rainfall values, or does it change?
+
+**Answer:** There is a negative relationship between rainfall and the proportion of children
 underweight; that is, as rainfall decreases, the proportion underweight
 increases. The effect is more pronounced below 100%, where the curve steepens,
 while above about 150% it flattens out and extra rain makes little difference.
@@ -1494,7 +1546,7 @@ ggplot(yearly_corr, aes(factor(year), correlation)) +
         axis.line = element_line(colour = "black"))
 ```
 
-The correlation is negative in every year and never weaker than about -0.6, so
+**Answer:** The correlation is negative in every year and never weaker than about -0.6, so
 no single year is driving the result. 2019 is the strongest year at around
 -0.82, but note that it has fewer datapoints, since lagging costs you the first
 six months of the series. That leaves only part of the year, and because both rainfall and the
@@ -1541,14 +1593,16 @@ about how many children are underweight in a zone, so these values cannot be
 used to rank zones as better or worse off. The two are separate, and reading them together is
 what makes the zone comparisons informative.
 
-Every zone is negative, but not equally so, ranging from about -0.63 in North
+**Answer:** Every zone is negative, but not equally so, ranging from about -0.63 in North
 Shewa (OR) to -0.91 in Borena. Borena, Guji and East Hararge rank high on both: a high
 proportion of children under 5 are underweight, and their series track rainfall
 closely. These zones are therefore both worse off and more exposed to variation
 in rainfall. Ilu Aba Bora is the contrast. It has the highest underweight proportion in the region, yet its
 series moves less closely with rainfall, so other factors are likely contributing.
 
-**So, is rainfall associated with child malnutrition in Oromia?** Yes, there is
+**Question:** So, is rainfall associated with child malnutrition in Oromia?
+
+**Answer:** Yes, there is
 a negative relationship between rainfall and the proportion of children under 5
 who are underweight. However, that relationship does not hold in the same way
 everywhere: Ilu Aba Bora's problem looks chronic rather than rain-driven, and
