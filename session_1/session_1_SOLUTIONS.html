@@ -7,7 +7,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
 
 <meta name="author" content="Tristan Naidoo">
-<meta name="dcterms.date" content="2026-09-03">
+<meta name="dcterms.date" content="2026-09-06">
 
 <title>EDAM training - cleaning and exporing data (solutions) – EDAM September Training</title>
 <style>
@@ -222,7 +222,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
     <div>
     <div class="quarto-title-meta-heading">Published</div>
     <div class="quarto-title-meta-contents">
-      <p class="date">September 3, 2026</p>
+      <p class="date">September 6, 2026</p>
     </div>
   </div>
   
@@ -442,7 +442,8 @@ date (3): visit_date, entry_date, dob
  NAs    :1564      NAs    :366    </code></pre>
 </div>
 </div>
-<p>Three things are already visible:</p>
+<p><strong>Question:</strong> What data quality issues can you already spot in the output above?</p>
+<p><strong>Answer:</strong> Three things are already visible:</p>
 <ul>
 <li><strong><code>weight_kg</code> maximum in the thousands</strong> - grams in a kilogram field.</li>
 <li><strong><code>height_cm</code> minimum well under 1</strong> - heights entered in metres.</li>
@@ -518,10 +519,13 @@ date (3): visit_date, entry_date, dob
 2 HP040805-06           58</code></pre>
 </div>
 </div>
-<p>Two health posts stand out, one missing 80% of its MUAC readings and another 58%, while every other post has none at all. That confirms the bureau’s guess: the missingness lines up with <code>health_post</code>, a column you can see, not with the MUAC value itself. This is missing at random (MAR). Most likely, neither post has a working MUAC tape.</p>
+<p><strong>Question:</strong> Does the missingness above look evenly spread across health posts, or does it cluster? What does that suggest about the mechanism, and does it match the bureau’s MAR guess?</p>
+<p><strong>Answer:</strong> Two health posts stand out, one missing 80% of its MUAC readings and another 58%, while every other post has none at all. That confirms the bureau’s guess: the missingness lines up with <code>health_post</code>, a column you can see, not with the MUAC value itself. This is missing at random (MAR). Most likely, neither post has a working MUAC tape.</p>
 <p><code>muac_mm</code> is not used anywhere else in this analysis, so you do not repair this missingness.</p>
-<p><strong>Since you take this to be MAR, how would you address the missingness?</strong> The missingness is explained by an observed column, so condition on that column. If you needed <code>muac_mm</code> downstream, you would impute it using <code>health_post</code> as a predictor rather than a single overall mean that ignores which posts are measuring at all. Here it is not used downstream, so leave it missing and document why.</p>
-<p><strong>What would you need to see instead for <code>muac_mm</code> to be MNAR? Give a concrete example.</strong> The missingness would have to depend on the MUAC value itself. For example, fieldworkers skipping the tape on children who looked visibly thin, perhaps because those children were fast-tracked into treatment. The lowest readings would then be the ones missing. Comparing <code>weight_kg</code> between children with and without a reading might hint at this, but a gap fully explained by <code>weight_kg</code> would then become MAR, since <code>weight_kg</code> is observed. MNAR means the gap survives conditioning on every column you have, which is why you can never confirm it from the data alone.</p>
+<p><strong>Question:</strong> Since you take this to be MAR, how would you address the missingness?</p>
+<p><strong>Answer:</strong> The missingness is explained by an observed column, so condition on that column. If you needed <code>muac_mm</code> downstream, you would impute it using <code>health_post</code> as a predictor rather than a single overall mean that ignores which posts are measuring at all. Here it is not used downstream, so leave it missing and document why.</p>
+<p><strong>Question:</strong> What would you need to see instead for <code>muac_mm</code> to be MNAR? Give a concrete example.</p>
+<p><strong>Answer:</strong> The missingness would have to depend on the MUAC value itself. For example, fieldworkers skipping the tape on children who looked visibly thin, perhaps because those children were fast-tracked into treatment. The lowest readings would then be the ones missing. Comparing <code>weight_kg</code> between children with and without a reading might hint at this, but a gap fully explained by <code>weight_kg</code> would then become MAR, since <code>weight_kg</code> is observed. MNAR means the gap survives conditioning on every column you have, which is why you can never confirm it from the data alone.</p>
 <hr>
 </section>
 <section id="accuracy" class="level3">
@@ -778,7 +782,8 @@ date (3): visit_date, entry_date, dob
 5 Agaro Town                         7</code></pre>
 </div>
 </div>
-<p>Jimma Town has a median reporting lag of 97 days, about three months, while every other woreda sits at 7 days, about a week, which aligns with what the bureau told you. This means that most woredas report data soon after a visit, but that Jimma Town may have a backlog or another issue preventing prompt entry.</p>
+<p><strong>Question:</strong> How does Jimma Town’s reporting lag compare to the other woredas above? Does that match what the bureau told you, and what might explain it?</p>
+<p><strong>Answer:</strong> Jimma Town has a median reporting lag of 97 days, about three months, while every other woreda sits at 7 days, about a week, which aligns with what the bureau told you. This means that most woredas report data soon after a visit, but that Jimma Town may have a backlog or another issue preventing prompt entry.</p>
 <p>Since there is a reporting lag between a visit happening and it being entered, you check the last month for which you have visit dates against the months before it, in case the most recent month has not caught up yet.</p>
 <div class="cell" data-layout-align="center">
 <details open="" class="code-fold">
@@ -799,7 +804,8 @@ date (3): visit_date, entry_date, dob
 4 2024-12-01   219</code></pre>
 </div>
 </div>
-<p>The final month, December 2024, holds just 219 records, well under a typical month’s roughly 540. You assume it is a partial month and drop it.</p>
+<p><strong>Question:</strong> How does the final month’s record count compare to the months before it? Given that, and the reporting lag you just saw, should you keep it as-is?</p>
+<p><strong>Answer:</strong> The final month, December 2024, holds just 219 records, well under a typical month’s roughly 540. You assume it is a partial month and drop it.</p>
 <div class="cell" data-layout-align="center">
 <details open="" class="code-fold">
 <summary>Code</summary>
@@ -1167,8 +1173,10 @@ First 10 features:
 </div>
 </div>
 </div>
-<p><strong>Note the difference between plot 4 and plot 5.</strong> <code>coord_sf()</code> and <code>filter()</code> answer different questions. <code>coord_sf()</code> restricts the view and keeps neighbouring woredas visible at the edges. <code>filter()</code> deletes them, so the study area floats in white space with no borders to locate it against. Zoom when you want context; filter when you genuinely mean “these and only these”.</p>
-<p><strong>You need to choose a plot to show the sampled woredas in a report. Which would you choose?</strong> Either the third or the fourth plot. The fifth is not wrong, but it removes the context that lets a reader judge coverage. Someone seeing scattered fragments assumes that is the study area, rather than a sample within a much larger region.</p>
+<p><strong>Question:</strong> Compare plot 4 and plot 5. What’s the difference between how <code>coord_sf()</code> and <code>filter()</code> handle the woredas outside your sample?</p>
+<p><strong>Answer:</strong> <code>coord_sf()</code> and <code>filter()</code> answer different questions. <code>coord_sf()</code> restricts the view and keeps neighbouring woredas visible at the edges. <code>filter()</code> deletes them, so the study area floats in white space with no borders to locate it against. Zoom when you want context; filter when you genuinely mean “these and only these”.</p>
+<p><strong>Question:</strong> You need to choose a plot to show the sampled woredas in a report. Which would you choose?</p>
+<p><strong>Answer:</strong> Either the third or the fourth plot. The fifth is not wrong, but it removes the context that lets a reader judge coverage. Someone seeing scattered fragments assumes that is the study area, rather than a sample within a much larger region.</p>
 <hr>
 </section>
 <section id="coordinate-reference-systems" class="level3">
@@ -1361,7 +1369,8 @@ Geodetic CRS:  WGS 84
 32.99180  3.40667 47.98824 14.84548 </code></pre>
 </div>
 </div>
-<p>Comparing these coordinates against Ethiopia’s bounding box, it seems that the lon and lat values have been entered the wrong way round, putting these posts in the Mediterranean.</p>
+<p><strong>Question:</strong> Compare the coordinates of the unmatched posts to Ethiopia’s bounding box above. What do you think has gone wrong with these rows?</p>
+<p><strong>Answer:</strong> Comparing these coordinates against Ethiopia’s bounding box, it seems that the lon and lat values have been entered the wrong way round, putting these posts in the Mediterranean.</p>
 <p>You flag the swapped rows, swap them back, and redo the join.</p>
 <div class="cell" data-layout-align="center">
 <details open="" class="code-fold">
@@ -1493,7 +1502,8 @@ dbl (4): year, total_pop, pop_under2, pop_under5
 4                   Borecha</code></pre>
 </div>
 </div>
-<p>Four woredas fail. The population file spells each with a trailing vowel swapped for <code>e</code>: <code>Mulo</code> should have matched <code>Mule</code>, <code>Adama Tulu Jido Kombolcha</code> should have matched <code>Adama Tulu Jido Kombolche</code>, <code>Bule Hora</code> should have matched <code>Bule Hore</code>, and <code>Borecha</code> should have matched <code>Boreche</code>. Joining by name is less reliable than using a code or coordinates.</p>
+<p><strong>Question:</strong> Look at the woredas that failed to match by name above, and compare their spelling to the equivalent entries in <code>woreda_population.csv</code>. What’s going wrong, and what does this tell you about joining on names versus codes?</p>
+<p><strong>Answer:</strong> Four woredas fail. The population file spells each with a trailing vowel swapped for <code>e</code>: <code>Mulo</code> should have matched <code>Mule</code>, <code>Adama Tulu Jido Kombolcha</code> should have matched <code>Adama Tulu Jido Kombolche</code>, <code>Bule Hora</code> should have matched <code>Bule Hore</code>, and <code>Borecha</code> should have matched <code>Boreche</code>. Joining by name is less reliable than using a code or coordinates.</p>
 <hr>
 </section>
 </section>
@@ -1752,7 +1762,9 @@ date (1): date
 </div>
 </div>
 </div>
-<p>The curve is roughly normal, sitting to the left of zero, with a tail stretching past -2. That tail is the children who are underweight. Next you create a boxplot that splits the same distribution by zone.</p>
+<p><strong>Question:</strong> Looking at the histogram above, what does the shape of the distribution tell you, especially relative to the -2/-3 cutoffs?</p>
+<p><strong>Answer:</strong> The curve is roughly normal, sitting to the left of zero, with a tail stretching past -2. That tail is the children who are underweight.</p>
+<p>Next you create a boxplot that splits the same distribution by zone.</p>
 <div class="cell" data-layout-align="center">
 <details open="" class="code-fold">
 <summary>Code</summary>
@@ -1777,7 +1789,8 @@ date (1): date
 </div>
 </div>
 </div>
-<p>Every zone has the same left tail, so the skew is not one bad zone dragging the rest down. Most boxes overlap heavily, with two exceptions: Ilu Aba Bora sits clearly below the others, and Arsi sits above.</p>
+<p><strong>Question:</strong> Compare the boxplots across zones. Is the left-skew you saw in the histogram common to every zone, or driven by a few? Do any zones stand out from the rest?</p>
+<p><strong>Answer:</strong> Every zone has the same left tail, so the skew is not one bad zone dragging the rest down. Most boxes overlap heavily, with two exceptions: Ilu Aba Bora sits clearly below the others, and Arsi sits above.</p>
 <hr>
 </section>
 <section id="mapping-the-children-underweight" class="level3">
@@ -1864,12 +1877,13 @@ date (1): date
 <div class="cell-output-display">
 <div class="quarto-figure quarto-figure-center">
 <figure class="figure">
-<p><img src="session_1_SOLUTIONS_files/figure-html/three-maps-1.png" class="img-fluid quarto-figure quarto-figure-center figure-img" width="672"></p>
+<p><img src="session_1_SOLUTIONS_files/figure-html/three-maps-1.png" class="img-fluid quarto-figure quarto-figure-center figure-img" width="864"></p>
 </figure>
 </div>
 </div>
 </div>
-<p><strong>Compare Ilu Aba Bora and Arsi.</strong> Map (a) shows the number of underweight children and, read alone, it suggests that these are the worst-off zones in Oromia. But map (b) shows that the number of children screened is markedly different: Arsi screened the most of any zone, Ilu Aba Bora among the fewest. Map (c) divides one by the other. Ilu Aba Bora has the highest prevalence; Arsi falls to the bottom. Its count was high only because its denominator was.</p>
+<p><strong>Question:</strong> Compare Ilu Aba Bora and Arsi across the three maps above. What do you notice?</p>
+<p><strong>Answer:</strong> Map (a) shows the number of underweight children and, read alone, it suggests that these are the worst-off zones in Oromia. But map (b) shows that the number of children screened is markedly different: Arsi screened the most of any zone, Ilu Aba Bora among the fewest. Map (c) divides one by the other. Ilu Aba Bora has the highest prevalence; Arsi falls to the bottom. Its count was high only because its denominator was.</p>
 <p>Counts and prevalence are not the same thing, and confusing them is a common mistake. You need a denominator, especially when comparing across spatial units or time.</p>
 <p>Colour on a map is hard to rank precisely. The same children as bars, sorted and split by severity, make the point more clearly:</p>
 <div class="cell" data-layout-align="center">
@@ -1944,7 +1958,8 @@ give correct results for longitude/latitude data</code></pre>
 </div>
 </div>
 </div>
-<p>Coverage is extremely poor across all zones. Arsi screened just 0.90% of its under-5 population, the highest in the sample; West Hararge screened 0.31%, the lowest, despite having the largest under-5 population in the region.</p>
+<p><strong>Question:</strong> Looking at maps (d) and (e), how does coverage vary across zones? Which zone has the highest coverage, and which the lowest?</p>
+<p><strong>Answer:</strong> Coverage is extremely poor across all zones. Arsi screened just 0.90% of its under-5 population, the highest in the sample; West Hararge screened 0.31%, the lowest, despite having the largest under-5 population in the region.</p>
 <p>Ranking the zones by the proportion underweight, alongside their coverage, gives:</p>
 <div class="cell" data-layout-align="center">
 <details open="" class="code-fold">
@@ -1981,7 +1996,8 @@ give correct results for longitude/latitude data</code></pre>
 14 West Wellega           2846                 303            10.6         0.63</code></pre>
 </div>
 </div>
-<p><strong>So, which zones in Oromia have the highest malnutrition?</strong> After adjusting for the number of children screened, Ilu Aba Bora, East Hararge, Guji and Borena have the highest proportion of children underweight. In contrast, Arsi, North Shewa (OR), Jimma, and West Wellega have the lowest.</p>
+<p><strong>Question:</strong> So, which zones in Oromia have the highest malnutrition, based on the ranking above? What limitations should you flag before reporting this?</p>
+<p><strong>Answer:</strong> After adjusting for the number of children screened, Ilu Aba Bora, East Hararge, Guji and Borena have the highest proportion of children underweight. In contrast, Arsi, North Shewa (OR), Jimma, and West Wellega have the lowest.</p>
 <p>However, there are limitations that need to be acknowledged when interpreting these maps. Only a small proportion of children under 5 in the region are reached, with coverage under 1% everywhere, so none of these figures estimates prevalence in the population. You have also used a sample of woredas to represent each entire zone. Screening may not be random either; it is possible that caregivers bring in the children who already look sick, which pushes every zone’s proportion above its true prevalence by an unknown amount. To understand this better you would need to ask the bureau for more details about how this sample was collected, and possibly improve the sampling process going forward if it is not possible to increase coverage.</p>
 <hr>
 </section>
@@ -2027,7 +2043,8 @@ give correct results for longitude/latitude data</code></pre>
 </div>
 </div>
 </div>
-<p>Rainfall (top) dips through 2021 and 2022, the sharpest part of the Horn of Africa drought (2020-2023) as it shows up in this data, while the proportion of children underweight (bottom) rises afterwards rather than at the same time. One explanation for the lag is the chain from poor rains to crop and livestock losses, then to household food insecurity, and finally to malnourishment. It is important to be clear, though, that nothing here establishes that chain. Two series moving in sequence is consistent with it, but it may also support many other explanations.</p>
+<p><strong>Question:</strong> Look at the two panels above. Does the proportion underweight move at the same time as rainfall, or with a delay?</p>
+<p><strong>Answer:</strong> Rainfall (top) dips through 2021 and 2022, the sharpest part of the Horn of Africa drought (2020-2023) as it shows up in this data, while the proportion of children underweight (bottom) rises afterwards rather than at the same time. One explanation for the lag is the chain from poor rains to crop and livestock losses, then to household food insecurity, and finally to malnourishment. It is important to be clear, though, that nothing here establishes that chain. Two series moving in sequence is consistent with it, but it may also support many other explanations.</p>
 <p><strong>How long is that delay?</strong> Rather than guess, you check every lag from 0 to 9 months and see which one actually correlates with the proportion underweight.</p>
 <div class="cell" data-layout-align="center">
 <details open="" class="code-fold">
@@ -2057,7 +2074,8 @@ give correct results for longitude/latitude data</code></pre>
 </div>
 </div>
 </div>
-<p>Rain in the same month, or the month before, tells you almost nothing - correlation is close to zero through lag 2. It jumps sharply at 3 months, stays strong through 6, then fades back towards zero by 7. From here you use the average of lags 3-6, <code>rain_lag</code>, rather than picking a single month out of that window.</p>
+<p><strong>Question:</strong> Looking at the bar chart above, over which range of lags does rainfall most strongly correlate with the proportion underweight? From here you use the average across that window, <code>rain_lag</code>, rather than picking a single month out of it.</p>
+<p><strong>Answer:</strong> Rain in the same month, or the month before, tells you almost nothing - correlation is close to zero through lag 2. It jumps sharply at 3 months, stays strong through 6, then fades back towards zero by 7. From here you use the average of lags 3-6, <code>rain_lag</code>, rather than picking a single month out of that window.</p>
 <p>Based on the above, you plot the average rainfall at a lag of 3-6 months, and overlay the two series so that they move together. The relationship should be clearer now.</p>
 <div class="cell" data-layout-align="center">
 <details open="" class="code-fold">
@@ -2156,7 +2174,8 @@ give correct results for longitude/latitude data</code></pre>
 </div>
 </div>
 </div>
-<p>There is a negative relationship between rainfall and the proportion of children underweight; that is, as rainfall decreases, the proportion underweight increases. The effect is more pronounced below 100%, where the curve steepens, while above about 150% it flattens out and extra rain makes little difference. The scatter around the curve is wide, so this describes an average pattern rather than something that would predict any single zone-month.</p>
+<p><strong>Question:</strong> Looking at the scatter plot and fitted curve above, what’s the relationship between lagged rainfall and the proportion of children underweight? Does it look the same across the whole range of rainfall values, or does it change?</p>
+<p><strong>Answer:</strong> There is a negative relationship between rainfall and the proportion of children underweight; that is, as rainfall decreases, the proportion underweight increases. The effect is more pronounced below 100%, where the curve steepens, while above about 150% it flattens out and extra rain makes little difference. The scatter around the curve is wide, so this describes an average pattern rather than something that would predict any single zone-month.</p>
 <p><strong>Is that relationship stable, or is it one drought year doing all the work?</strong> To answer this, look at the correlation within each year.</p>
 <div class="cell" data-layout-align="center">
 <details open="" class="code-fold">
@@ -2194,7 +2213,7 @@ give correct results for longitude/latitude data</code></pre>
 </div>
 </div>
 </div>
-<p>The correlation is negative in every year and never weaker than about -0.6, so no single year is driving the result. 2019 is the strongest year at around -0.82, but note that it has fewer datapoints, since lagging costs you the first six months of the series. That leaves only part of the year, and because both rainfall and the proportion underweight vary seasonally, a partial year is not directly comparable with a full one.</p>
+<p><strong>Answer:</strong> The correlation is negative in every year and never weaker than about -0.6, so no single year is driving the result. 2019 is the strongest year at around -0.82, but note that it has fewer datapoints, since lagging costs you the first six months of the series. That leaves only part of the year, and because both rainfall and the proportion underweight vary seasonally, a partial year is not directly comparable with a full one.</p>
 <p><strong>Is it the same in every zone, or concentrated in a few?</strong></p>
 <div class="cell" data-layout-align="center">
 <details open="" class="code-fold">
@@ -2233,14 +2252,15 @@ give correct results for longitude/latitude data</code></pre>
 <div class="cell-output-display">
 <div class="quarto-figure quarto-figure-center">
 <figure class="figure">
-<p><img src="session_1_SOLUTIONS_files/figure-html/zone-corr-map-1.png" class="img-fluid quarto-figure quarto-figure-center figure-img" width="672"></p>
+<p><img src="session_1_SOLUTIONS_files/figure-html/zone-corr-map-1.png" class="img-fluid quarto-figure quarto-figure-center figure-img" width="864"></p>
 </figure>
 </div>
 </div>
 </div>
 <p>Note that a correlation describes how two series move together. It says nothing about how many children are underweight in a zone, so these values cannot be used to rank zones as better or worse off. The two are separate, and reading them together is what makes the zone comparisons informative.</p>
-<p>Every zone is negative, but not equally so, ranging from about -0.63 in North Shewa (OR) to -0.91 in Borena. Borena, Guji and East Hararge rank high on both: a high proportion of children under 5 are underweight, and their series track rainfall closely. These zones are therefore both worse off and more exposed to variation in rainfall. Ilu Aba Bora is the contrast. It has the highest underweight proportion in the region, yet its series moves less closely with rainfall, so other factors are likely contributing.</p>
-<p><strong>So, is rainfall associated with child malnutrition in Oromia?</strong> Yes, there is a negative relationship between rainfall and the proportion of children under 5 who are underweight. However, that relationship does not hold in the same way everywhere: Ilu Aba Bora’s problem looks chronic rather than rain-driven, and Arsi’s rain-sensitivity does not show up in its baseline numbers at all, so rainfall alone does not explain either zone. A further limitation of this correlation view is that each zone’s number is built from a small sample (57-65 zone-months).</p>
+<p><strong>Answer:</strong> Every zone is negative, but not equally so, ranging from about -0.63 in North Shewa (OR) to -0.91 in Borena. Borena, Guji and East Hararge rank high on both: a high proportion of children under 5 are underweight, and their series track rainfall closely. These zones are therefore both worse off and more exposed to variation in rainfall. Ilu Aba Bora is the contrast. It has the highest underweight proportion in the region, yet its series moves less closely with rainfall, so other factors are likely contributing.</p>
+<p><strong>Question:</strong> So, is rainfall associated with child malnutrition in Oromia?</p>
+<p><strong>Answer:</strong> Yes, there is a negative relationship between rainfall and the proportion of children under 5 who are underweight. However, that relationship does not hold in the same way everywhere: Ilu Aba Bora’s problem looks chronic rather than rain-driven, and Arsi’s rain-sensitivity does not show up in its baseline numbers at all, so rainfall alone does not explain either zone. A further limitation of this correlation view is that each zone’s number is built from a small sample (57-65 zone-months).</p>
 <hr>
 </section>
 </section>
