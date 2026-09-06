@@ -1417,7 +1417,7 @@ strongly correlate with the proportion underweight? From here you use the averag
 window, `rain_lag`, rather than picking a single month out of it.
 
 **Answer:** Rain in the same month, or the month before, tells you almost nothing -
-correlation is close to zero through lag 2. It jumps sharply at 3 months, stays
+correlation is low through lag 2. It increases sharply at 3 months, stays
 strong through 6, then fades back towards zero by 7. From here you use the
 average of lags 3-6, `rain_lag`, rather than picking a single month out of that
 window.
