@@ -628,7 +628,7 @@ ggplot(eth) +
   # print bb2 to see the named values it holds and select the elements using
   # $
   coord_sf(xlim = c(___, ___), ylim = c(___, ___)) +
-  labs(title = "Sampled woredas, zoomed to Oromia", fill = "Sampled) +
+  labs(title = "Sampled woredas, zoomed to Oromia", fill = "Sampled") +
   theme_void() +
   theme(plot.title = element_text(hjust = 0.5))
 ```
@@ -904,9 +904,9 @@ zone_rain <- zones |>
 
 # Rainfall for 2022-06-01
 ggplot() +
-  geom_sf(data = zones, fill = "gray90", colour = "black", linewidth = 0.2) +
-  geom_sf(data = zone_rain |> filter(date == as.Date("2022-06-01")), 
-  aes(fill = rain_anom_pct), colour = "black", linewidth = 0.3) +
+  geom_sf(data = zones, fill = "gray90", colour = "black", linewidth = 0.1) +
+  geom_sf(data = zone_rain |> filter(date == as.Date("2022-06-01")),
+  aes(fill = rain_anom_pct), colour = "black", linewidth = 0.2) +
   scale_fill_viridis_c() +
   labs(title = "Rainfall, June 2022",
        subtitle = "Zone shapes are the dissolved sample, not the true extent",
@@ -1477,7 +1477,7 @@ zone_corr_map <- zones |>
 bb_corr <- st_bbox(zone_corr_map)
 
 ggplot() +
-  geom_sf(data = zones, fill = "grey95", colour = "black", linewidth = 0.1) +
+  geom_sf(data = zones, fill = "grey95", colour = "black", linewidth = 0.2) +
   geom_sf(data = zone_corr_map, aes(fill = correlation), colour = "black", linewidth = 0.2) +
   geom_sf_label(data = zone_corr_map, aes(label = zone_name), size = 2,
                 linewidth = 0, fill = scales::alpha("gray90", 0.7)) +
